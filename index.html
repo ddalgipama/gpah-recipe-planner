@@ -430,6 +430,7 @@
     const planStoreKey = "gpah-calendar-plan-v2";
     const calendarSettingsKey = "gpah-calendar-settings-v1";
     const sheetsSettingsKey = "gpah-sheets-settings-v1";
+    const defaultSheetsUrl = "https://script.google.com/macros/s/AKfycbxrenm9I2W59G2vI_4dQKjbZLe8OjfKWmTgnj1517h6pC8IV98yRVPZMVTnLsPrhWz_/exec";
     const savedSettings = loadJson(calendarSettingsKey, {});
     const sheetsSettings = loadJson(sheetsSettingsKey, {});
     const deletedRecipeIds = loadJson(deletedRecipeStoreKey, []);
@@ -449,7 +450,7 @@
       search: "",
       calendarSearch: "",
       registrationAuthor: "",
-      sheetsUrl: sheetsSettings.url || "",
+      sheetsUrl: sheetsSettings.url || defaultSheetsUrl,
       selectedId: recipes[0]?.id || null,
       editingRecipeId: null,
       activeRegistration: null,
