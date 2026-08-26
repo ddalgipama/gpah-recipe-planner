@@ -1,0 +1,1348 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPAH 레시피 플래너</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17211f;
+      --muted: #66736f;
+      --line: #dbe2dd;
+      --paper: #ffffff;
+      --wash: #f3f6f3;
+      --main: #176b5d;
+      --side: #996036;
+      --salad: #4d7c4a;
+      --team-a: #e7f3f0;
+      --team-b: #fff1da;
+      --shadow: 0 16px 40px rgba(31, 45, 40, 0.09);
+      --soft-shadow: 0 8px 22px rgba(31, 45, 40, 0.07);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: Inter, Pretendard, "Noto Sans KR", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f6f8f6;
+    }
+    button, input, select, textarea { font: inherit; }
+    button { border: 0; cursor: pointer; }
+    .shell { max-width: 1480px; margin: 0 auto; padding: 30px; }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 20px;
+      margin-bottom: 18px; padding: 16px 18px; border: 1px solid var(--line);
+      border-radius: 8px; background: rgba(255,255,255,0.86); box-shadow: var(--soft-shadow);
+    }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .mark {
+      width: 52px; height: 52px; border-radius: 8px; display: grid; place-items: center;
+      color: #fff; font-weight: 900;
+      background: linear-gradient(135deg, #176b5d, #9a6a3d 78%);
+      box-shadow: 0 10px 22px rgba(23, 107, 93, 0.22);
+    }
+    h1 { margin: 0; font-size: clamp(1.65rem, 2.7vw, 2.45rem); line-height: 1.05; letter-spacing: 0; }
+    .top-actions { display: flex; align-items: end; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+    .field { display: grid; gap: 6px; }
+    label { color: var(--muted); font-size: 0.78rem; font-weight: 800; }
+    input, select, textarea {
+      width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 8px;
+      padding: 0 12px; color: var(--ink); background: #fff; outline: none;
+    }
+    textarea { min-height: 86px; padding-top: 10px; resize: vertical; }
+    input:focus, select:focus, textarea:focus { border-color: var(--main); box-shadow: 0 0 0 3px rgba(45, 111, 107, 0.15); }
+    .top-select { min-width: 150px; }
+    .btn {
+      min-height: 42px; border-radius: 8px; padding: 0 13px; color: var(--ink);
+      background: #fff; border: 1px solid var(--line); font-weight: 800;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.88) inset;
+    }
+    .btn:hover { border-color: #bdc9c2; background: #fbfcfb; }
+    .btn.primary { color: #fff; background: var(--main); border-color: var(--main); box-shadow: 0 10px 22px rgba(23,107,93,0.18); }
+    .btn.primary:hover { background: #11584d; border-color: #11584d; }
+    .btn.icon { width: 42px; padding: 0; font-size: 1.35rem; line-height: 1; }
+    .tabs {
+      display: inline-flex; gap: 4px; padding: 4px; margin-bottom: 18px;
+      border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,0.9);
+      box-shadow: var(--soft-shadow);
+    }
+    .tab { min-width: 120px; min-height: 40px; border-radius: 6px; color: var(--muted); background: transparent; font-weight: 900; }
+    .tab.active { color: #fff; background: var(--main); }
+    .view { display: none; }
+    .view.active { display: block; }
+    .panel {
+      background: rgba(255,255,255,0.96); border: 1px solid var(--line);
+      border-radius: 8px; box-shadow: var(--shadow); overflow: hidden;
+    }
+    .panel-header { padding: 17px 18px 14px; border-bottom: 1px solid var(--line); background: #fbfcfb; }
+    .panel-header.between { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .panel-title { margin: 0; font-size: 1.04rem; line-height: 1.2; }
+    .menu-layout { display: grid; grid-template-columns: minmax(360px, 440px) minmax(0, 1fr); gap: 18px; align-items: start; }
+    .search-area { display: grid; gap: 12px; padding: 16px; }
+    .search-row { display: grid; grid-template-columns: 1fr 42px; gap: 10px; }
+    .category-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+    .category-tabs button, .slot-tabs button {
+      min-height: 38px; border-radius: 8px; color: var(--muted); background: var(--wash); font-weight: 900;
+      border: 1px solid transparent;
+    }
+    .category-tabs button.active, .slot-tabs button.active { color: #fff; background: var(--main); }
+    .ingredient-groups {
+      display: grid; gap: 12px; max-height: 650px; overflow: auto;
+      padding: 16px; border-top: 1px solid var(--line);
+    }
+    .group-title {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      margin: 4px 0 8px; color: var(--muted); font-size: 0.82rem; font-weight: 900;
+    }
+    .recipe-card, .drawer-card {
+      width: 100%; text-align: left; padding: 13px; border: 1px solid var(--line);
+      border-radius: 8px; color: inherit; background: var(--paper); box-shadow: 0 1px 0 rgba(255,255,255,0.9) inset;
+    }
+    .recipe-card:hover, .recipe-card.selected {
+      transform: translateY(-1px); border-color: rgba(23,107,93,0.42); box-shadow: 0 10px 24px rgba(23,107,93,0.10);
+    }
+    .recipe-name { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-weight: 900; line-height: 1.25; }
+    .recipe-title { display: inline-flex; align-items: center; gap: 7px; min-width: 0; flex-wrap: wrap; }
+    .allergy-icons { display: inline-flex; align-items: center; gap: 3px; flex-wrap: wrap; }
+    .allergy-icon {
+      display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 999px;
+      background: #fff6e3; border: 1px solid rgba(169,91,43,0.24); font-size: 0.82rem; line-height: 1;
+    }
+    .recipe-card-head { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: start; }
+    .recipe-open { text-align: left; color: inherit; background: transparent; padding: 0; }
+    .recipe-actions { display: flex; gap: 6px; }
+    .mini-btn { min-height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); background: #fff; font-size: 0.74rem; font-weight: 900; }
+    .mini-btn.danger { color: #a7433b; }
+    .badge-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .badge {
+      display: inline-flex; align-items: center; min-height: 24px; padding: 0 8px; border-radius: 999px;
+      color: var(--muted); background: var(--wash); font-size: 0.75rem; font-weight: 800;
+    }
+    .badge.main { color: var(--main); background: rgba(45,111,107,0.13); }
+    .badge.side { color: var(--side); background: rgba(169,91,43,0.13); }
+    .badge.salad { color: var(--salad); background: rgba(94,127,63,0.13); }
+    .detail { padding: 16px; display: grid; gap: 13px; }
+    .detail h3 { margin: 0; font-size: 1.28rem; line-height: 1.22; }
+    .detail-block { border: 1px solid var(--line); border-radius: 8px; padding: 13px; background: #fff; }
+    .detail-block strong { display: block; margin-bottom: 7px; color: var(--muted); font-size: 0.78rem; }
+    .detail-block pre { margin: 0; white-space: pre-wrap; word-break: keep-all; line-height: 1.55; font-family: inherit; font-size: 0.92rem; }
+    .empty { padding: 18px; color: var(--muted); line-height: 1.5; }
+    .calendar-tools {
+      display: grid; grid-template-columns: minmax(220px, 1fr) auto auto;
+      gap: 10px; align-items: end; padding: 16px; border-bottom: 1px solid var(--line); background: #f8faf8;
+    }
+    .calendar-settings {
+      display: none; grid-template-columns: minmax(180px, 1fr) repeat(4, minmax(130px, 180px));
+      gap: 10px; padding: 16px; border-bottom: 1px solid var(--line); background: #ffffff;
+    }
+    .calendar-settings.open { display: grid; }
+    .big-register { min-height: 54px; font-size: 1rem; }
+    .btn.small { min-height: 34px; padding: 0 10px; font-size: 0.82rem; }
+    .calendar-wrap { overflow: auto; max-height: calc(100vh - 300px); }
+    .mobile-calendar { display: none; }
+    .week-tabs {
+      display: flex; gap: 8px; overflow-x: auto; padding: 12px 16px;
+      border-bottom: 1px solid var(--line); background: #fff;
+    }
+    .week-tab {
+      flex: 0 0 auto; min-height: 36px; padding: 0 12px; border-radius: 8px;
+      border: 1px solid var(--line); background: var(--wash); color: var(--muted); font-weight: 900;
+    }
+    .week-tab.active { color: #fff; background: var(--main); border-color: var(--main); }
+    .mobile-week-body { display: grid; gap: 10px; padding: 12px; }
+    .mobile-day-card {
+      border: 1px solid var(--line); border-radius: 8px; background: #fff;
+      box-shadow: var(--soft-shadow); overflow: hidden;
+    }
+    .mobile-day-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 12px; background: #f8faf8; border-bottom: 1px solid var(--line); font-weight: 900;
+    }
+    .mobile-day-head span:last-child { color: var(--muted); font-size: 0.84rem; }
+    .mobile-meal {
+      display: grid; gap: 7px; padding: 12px; border-top: 1px solid var(--line);
+      color: inherit; background: #fff; text-align: left; width: 100%;
+    }
+    .mobile-meal:first-of-type { border-top: 0; }
+    .mobile-meal.has-menu { cursor: pointer; }
+    .mobile-meal.has-menu:hover { background: #fbfcfb; }
+    .mobile-meal-title { color: var(--main); font-weight: 900; font-size: 0.88rem; }
+    .mobile-menu-line {
+      display: grid; grid-template-columns: 52px 1fr; gap: 8px; align-items: start;
+      font-size: 0.88rem; line-height: 1.35;
+    }
+    .mobile-menu-line strong { color: var(--muted); font-size: 0.76rem; }
+    .calendar-heading {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 14px 16px; border-bottom: 1px solid var(--line); background: #ffffff;
+    }
+    .calendar-heading h3 { margin: 0; font-size: 1.12rem; }
+    .calendar-heading span { color: var(--muted); font-size: 0.84rem; font-weight: 800; }
+    .calendar {
+      min-width: 1120px; display: grid; grid-template-columns: 92px 78px repeat(5, minmax(170px, 1fr));
+      border-top: 1px solid var(--line); border-left: 1px solid var(--line); background: #fff;
+    }
+    .cal-cell { min-height: 82px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 9px; }
+    .cal-head { min-height: 44px; display: grid; place-items: center; color: #fff; background: #1d2b28; font-weight: 900; position: sticky; top: 0; z-index: 4; text-align: center; }
+    .week-cell { display: grid; place-items: center; text-align: center; font-weight: 900; position: sticky; left: 0; z-index: 3; }
+    .meal-label { display: grid; place-items: center; color: var(--muted); background: #f8faf8; font-weight: 900; position: sticky; left: 92px; z-index: 3; }
+    .team-a { background: var(--team-a); }
+    .team-b { background: var(--team-b); }
+    .meal-cell { display: grid; gap: 8px; align-content: start; background: #ffffff; }
+    .meal-cell.has-menu { cursor: pointer; }
+    .meal-cell.has-menu:hover { outline: 2px solid rgba(45,111,107,0.34); outline-offset: -2px; }
+    .meal-cell.team-a { background: rgba(231,243,240,0.74); }
+    .meal-cell.team-b { background: rgba(255,241,218,0.72); }
+    .registered { display: grid; gap: 4px; }
+    .cell-date { color: var(--muted); font-size: 0.74rem; font-weight: 900; }
+    .registered-line { display: grid; grid-template-columns: 46px 1fr; gap: 6px; align-items: center; min-width: 0; font-size: 0.78rem; line-height: 1.35; }
+    .registered-line strong { color: var(--muted); font-size: 0.72rem; }
+    .registered-line span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .free-entry {
+      min-height: 28px; padding: 6px 8px; border-radius: 8px; background: rgba(255,255,255,0.78);
+      color: var(--muted); font-size: 0.8rem; font-weight: 800;
+    }
+    .author { color: var(--muted); font-size: 0.76rem; font-weight: 800; padding-top: 3px; }
+    .summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding: 14px 0 0; border-top: 1px solid var(--line); background: transparent; }
+    .stat { border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #fff; }
+    .stat span { display: block; color: var(--muted); font-size: 0.76rem; font-weight: 800; }
+    .stat strong { display: block; margin-top: 5px; font-size: 1.28rem; }
+    .drawer { border-bottom: 1px solid var(--line); padding: 16px; background: #ffffff; display: none; }
+    .drawer.open { display: block; }
+    .drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    .drawer-head h3 { margin: 0; font-size: 1.05rem; }
+    .drawer-grid { display: grid; grid-template-columns: 260px 1fr; gap: 12px; align-items: start; }
+    .registration-fields { display: grid; gap: 10px; }
+    .target-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .slot-tabs { display: grid; gap: 8px; margin-top: 10px; }
+    .drawer-results { display: grid; gap: 8px; max-height: 310px; overflow: auto; }
+    .drawer-card { display: grid; grid-template-columns: 1fr 38px; gap: 10px; align-items: center; }
+    .plus-btn { width: 38px; height: 38px; border-radius: 8px; color: #fff; background: var(--main); font-size: 1.2rem; font-weight: 900; }
+    .plus-btn:hover { background: #11584d; }
+    .modal-backdrop { position: fixed; inset: 0; display: none; place-items: center; padding: 18px; background: rgba(23,33,31,0.34); z-index: 20; }
+    .modal-backdrop.open { display: grid; }
+    .modal { width: min(720px, 100%); max-height: calc(100vh - 36px); overflow: auto; border-radius: 8px; border: 1px solid var(--line); background: var(--paper); box-shadow: 0 24px 64px rgba(23,33,31,0.18); }
+    .modal-body { display: grid; gap: 12px; padding: 16px; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    @media (max-width: 1050px) {
+      .shell { padding: 18px; }
+      .topbar { align-items: stretch; flex-direction: column; }
+      .top-actions { justify-content: flex-start; }
+      .menu-layout { grid-template-columns: 1fr; }
+      .calendar-tools { grid-template-columns: 1fr; }
+      .calendar-settings { grid-template-columns: 1fr 1fr; }
+      .drawer-grid { grid-template-columns: 1fr; }
+      .calendar-wrap { max-height: none; }
+    }
+    @media (max-width: 640px) {
+      .shell { padding: 12px; }
+      .brand { align-items: flex-start; }
+      .mark { width: 48px; height: 48px; }
+      .top-select, .btn { width: 100%; }
+      .tabs { width: 100%; }
+      .tab { flex: 1; min-width: 0; }
+      .category-tabs, .summary, .form-grid, .calendar-tools, .calendar-settings { grid-template-columns: 1fr; }
+      .search-row { grid-template-columns: 1fr; }
+      .calendar-wrap { display: none; }
+      .mobile-calendar { display: block; }
+      .calendar-heading { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="mark" aria-hidden="true">G</div>
+        <div>
+          <h1>GPAH 레시피 플래너</h1>
+        </div>
+      </div>
+    </header>
+
+    <nav class="tabs" aria-label="메인 화면">
+      <button type="button" class="tab active" data-view="menu">메뉴검색</button>
+      <button type="button" class="tab" data-view="calendar">캘린더</button>
+    </nav>
+
+    <section class="view active" id="menuView">
+      <div class="menu-layout">
+        <section class="panel">
+          <div class="panel-header between">
+            <h2 class="panel-title">메뉴검색</h2>
+            <div class="top-actions">
+              <button type="button" class="btn" id="openSheetsSettings">Google Sheets 연동</button>
+            </div>
+          </div>
+          <div class="search-area">
+            <div class="search-row">
+              <div class="field">
+                <label for="search">메뉴 이름·재료 검색</label>
+                <input id="search" type="search" placeholder="예: 닭다리살, 간장조림">
+              </div>
+              <button type="button" class="btn icon" id="openNewRecipe" title="신규메뉴등록" aria-label="신규메뉴등록">+</button>
+            </div>
+            <div class="category-tabs" aria-label="메뉴 카테고리">
+              <button type="button" class="active" data-category="all">전체</button>
+              <button type="button" data-category="메인">메인</button>
+              <button type="button" data-category="사이드">사이드</button>
+              <button type="button" data-category="샐러드">샐러드</button>
+            </div>
+          </div>
+          <div class="ingredient-groups" id="recipeGroups"></div>
+        </section>
+        <section class="panel">
+          <div class="panel-header"><h2 class="panel-title">레시피 상세</h2></div>
+          <div class="detail" id="recipeDetail"></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="view" id="calendarView">
+      <section class="panel">
+        <div class="panel-header"><h2 class="panel-title">과정 캘린더</h2></div>
+        <div class="calendar-tools">
+          <button type="button" class="btn primary big-register" id="openCurrentWeek">메뉴등록하기</button>
+          <button type="button" class="btn small" id="toggleCalendarSettings">캘린더생성하기</button>
+          <button type="button" class="btn small" id="exportExcel">엑셀다운로드</button>
+        </div>
+        <div class="calendar-settings" id="calendarSettings">
+          <div class="field">
+            <label for="calendarTitle">캘린더 제목</label>
+            <input id="calendarTitle" placeholder="예: SKE33, SCOTW35">
+          </div>
+          <div class="field">
+            <label for="calendarCourseSelect">주차 선택</label>
+            <select id="calendarCourseSelect">
+              <option value="4-scotw">4주</option>
+              <option value="5-scotw" selected>5주</option>
+              <option value="8-ske">8주</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="calendarLanguageSelect">언어</label>
+            <select id="calendarLanguageSelect">
+              <option value="중국어">중국어</option>
+              <option value="내밀" selected>내밀</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="startDate">시작일</label>
+            <input id="startDate" type="date">
+          </div>
+          <div class="field">
+            <label for="startTeam">시작팀</label>
+            <select id="startTeam">
+              <option value="a">A팀</option>
+              <option value="b">B팀</option>
+            </select>
+          </div>
+        </div>
+        <div class="drawer" id="registrationDrawer"></div>
+        <div class="calendar-heading" id="calendarHeading"></div>
+        <div class="calendar-wrap"><div class="calendar" id="calendar"></div></div>
+        <div class="mobile-calendar" id="mobileCalendar"></div>
+      </section>
+    </section>
+  </main>
+
+  <div class="modal-backdrop" id="newRecipeModal" role="dialog" aria-modal="true" aria-labelledby="newRecipeTitle">
+    <div class="modal">
+      <div class="panel-header"><h2 class="panel-title" id="newRecipeTitle">신규메뉴등록</h2></div>
+      <form class="modal-body" id="newRecipeForm">
+        <div class="form-grid">
+          <div class="field"><label for="newName">메뉴 이름</label><input id="newName" required></div>
+          <div class="field"><label for="newType">분류</label><select id="newType"><option>메인</option><option>사이드</option><option>샐러드</option></select></div>
+        </div>
+        <div class="field"><label for="newTime">소요시간</label><input id="newTime" placeholder="예: 70~85분"></div>
+        <div class="field"><label for="newIngredients">주재료</label><textarea id="newIngredients" placeholder="재료명과 수량을 줄바꿈으로 입력"></textarea></div>
+        <div class="field"><label for="newSauce">소스재료</label><textarea id="newSauce" placeholder="소스재료를 줄바꿈으로 입력"></textarea></div>
+        <div class="field"><label for="newRecipeText">레시피</label><textarea id="newRecipeText"></textarea></div>
+        <div class="field"><label for="newNotes">주의사항</label><textarea id="newNotes"></textarea></div>
+        <div class="top-actions">
+          <button type="button" class="btn" id="cancelNewRecipe">닫기</button>
+          <button type="submit" class="btn primary">등록</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="sheetsModal" role="dialog" aria-modal="true" aria-labelledby="sheetsTitle">
+    <div class="modal">
+      <div class="panel-header"><h2 class="panel-title" id="sheetsTitle">Google Sheets 연동</h2></div>
+      <div class="modal-body">
+        <div class="field">
+          <label for="sheetsUrl">Apps Script 웹앱 URL</label>
+          <input id="sheetsUrl" placeholder="https://script.google.com/macros/s/.../exec">
+        </div>
+        <div class="free-entry" id="sheetsStatus">URL을 저장하면 메뉴 데이터를 Google Sheets에서 불러올 수 있습니다.</div>
+        <div class="top-actions">
+          <button type="button" class="btn" id="closeSheetsSettings">닫기</button>
+          <button type="button" class="btn" id="syncSheetsNow">시트에서 불러오기</button>
+          <button type="button" class="btn primary" id="saveSheetsSettings">저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="mealDetailModal" role="dialog" aria-modal="true" aria-labelledby="mealDetailTitle">
+    <div class="modal">
+      <div class="panel-header between">
+        <h2 class="panel-title" id="mealDetailTitle">등록 메뉴 상세</h2>
+        <button type="button" class="btn small" id="printMealDetail">인쇄하기</button>
+      </div>
+      <div class="modal-body" id="mealDetailBody"></div>
+    </div>
+  </div>
+
+  <script>
+    const starterRecipes = [
+      {
+        id: "gpah-1",
+        language: "내밀",
+        school: "SCOTW33",
+        chefTeam: "김미애",
+        type: "메인",
+        name: "닭다리살 간장조림",
+        time: "70~85분",
+        mainIngredients: "닭다리살 냉장 정육 8kg\n마늘 500g\n대파 1단\n청양고추 100g",
+        sauceIngredients: "진간장 1L\n미림 700ml\n올리고당 600ml\n굴소스 200ml\n노두유 80~100ml\n생강가루 15~20g\n후추 10~15g\n물 2L\n식용유 150ml",
+        recipe: "1. 재료 손질 - 약 15~20분\n닭다리살은 너무 큰 것은 2~3등분합니다. 마늘은 편으로 썰거나 굵게 다지고, 대파와 청양고추는 송송 썰어 준비합니다.\n\n2. 닭 초벌 볶기 - 약 15~20분\n큰 솥이나 볶음팬에 식용유를 두르고 닭다리살을 넣어 센 불에서 볶습니다.\n\n3. 양념 넣고 1차 조림 - 약 20분\n닭을 모두 솥에 넣고 간장, 미림, 굴소스, 올리고당 일부, 노두유, 생강가루, 후추, 물과 마늘을 넣습니다.\n\n4. 졸이기 - 약 15~20분\n뚜껑을 열고 중강불에서 국물을 졸입니다.\n\n5. 대파·청양고추 넣고 마무리 - 약 5분\n대파와 청양고추를 넣고 약 5분 더 조립니다.",
+        notes: "노두유는 색을 보고 마지막에 추가하는 것을 추천합니다."
+      }
+    ];
+    const courses = {
+      "4-scotw": { label: "4주", weeks: 4, schoolPrefix: "SCOTW" },
+      "5-scotw": { label: "5주", weeks: 5, schoolPrefix: "SCOTW" },
+      "8-ske": { label: "8주", weeks: 8, schoolPrefix: "SKE" }
+    };
+    const days = ["월", "화", "수", "목", "금"];
+    const mealLabels = { lunch: "점심", dinner: "저녁" };
+    const mealSlots = {
+      lunch: [["main", "메인"], ["side", "사이드"], ["salad", "샐러드"], ["free", "빈칸"]],
+      dinner: [["main", "메인"], ["side", "사이드"], ["salad", "샐러드"], ["free", "빈칸"]]
+    };
+    const slotType = { main: "메인", side: "사이드", salad: "샐러드", free: "빈칸" };
+    const recipeStoreKey = "gpah-recipes-v2";
+    const deletedRecipeStoreKey = "gpah-deleted-recipes-v1";
+    const planStoreKey = "gpah-calendar-plan-v2";
+    const calendarSettingsKey = "gpah-calendar-settings-v1";
+    const sheetsSettingsKey = "gpah-sheets-settings-v1";
+    const savedSettings = loadJson(calendarSettingsKey, {});
+    const sheetsSettings = loadJson(sheetsSettingsKey, {});
+    const deletedRecipeIds = loadJson(deletedRecipeStoreKey, []);
+    const savedRecipes = loadJson(recipeStoreKey, []);
+    const savedById = Object.fromEntries(savedRecipes.map(recipe => [recipe.id, recipe]));
+    const recipes = [
+      ...starterRecipes.map(recipe => savedById[recipe.id] || recipe),
+      ...savedRecipes.filter(recipe => !starterRecipes.some(starter => starter.id === recipe.id))
+    ].filter(recipe => !deletedRecipeIds.includes(recipe.id));
+    const state = {
+      course: "5-scotw",
+      language: "내밀",
+      calendarTitle: savedSettings.calendarTitle || "",
+      startDate: savedSettings.startDate || "2026-08-31",
+      startTeam: savedSettings.startTeam || "a",
+      menuCategory: "all",
+      search: "",
+      calendarSearch: "",
+      registrationAuthor: "",
+      sheetsUrl: sheetsSettings.url || "",
+      selectedId: recipes[0]?.id || null,
+      editingRecipeId: null,
+      activeRegistration: null,
+      activeMealDetail: null,
+      activeSlot: "main",
+      plan: loadJson(planStoreKey, {})
+    };
+    const els = {
+      calendarCourseSelect: document.querySelector("#calendarCourseSelect"),
+      calendarLanguageSelect: document.querySelector("#calendarLanguageSelect"),
+      calendarTitle: document.querySelector("#calendarTitle"),
+      startDate: document.querySelector("#startDate"),
+      startTeam: document.querySelector("#startTeam"),
+      calendarSettings: document.querySelector("#calendarSettings"),
+      search: document.querySelector("#search"),
+      recipeGroups: document.querySelector("#recipeGroups"),
+      recipeDetail: document.querySelector("#recipeDetail"),
+      calendar: document.querySelector("#calendar"),
+      mobileCalendar: document.querySelector("#mobileCalendar"),
+      drawer: document.querySelector("#registrationDrawer"),
+      modal: document.querySelector("#newRecipeModal"),
+      sheetsModal: document.querySelector("#sheetsModal"),
+      sheetsUrl: document.querySelector("#sheetsUrl"),
+      sheetsStatus: document.querySelector("#sheetsStatus"),
+      mealDetailModal: document.querySelector("#mealDetailModal"),
+      mealDetailBody: document.querySelector("#mealDetailBody"),
+      calendarHeading: document.querySelector("#calendarHeading")
+    };
+
+    function normalize(value) { return String(value || "").toLowerCase().replace(/\s+/g, ""); }
+    function currentCourse() { return courses[state.course]; }
+    function recipeMatchesContext(recipe) {
+      const schoolOk = !recipe.school || recipe.school.startsWith(currentCourse().schoolPrefix);
+      return recipe.language === state.language && schoolOk;
+    }
+    function recipeMatchesQuery(recipe, query) {
+      if (!query) return true;
+      return normalize([recipe.name, recipe.type, recipe.mainIngredients, recipe.sauceIngredients, recipe.recipe, recipe.chefTeam].join(" ")).includes(normalize(query));
+    }
+    function visibleRecipes(category = state.menuCategory, query = state.search) {
+      return recipes.filter(recipe => (category === "all" || recipe.type === category) && recipeMatchesQuery(recipe, query));
+    }
+    function typeClass(type) { return type === "메인" ? "main" : type === "사이드" ? "side" : type === "샐러드" ? "salad" : ""; }
+    function primaryIngredient(recipe) {
+      const firstLine = String(recipe.mainIngredients || "").split(/\n|,/).map(item => item.trim()).find(Boolean);
+      return firstLine ? firstLine.replace(/\s+\d.*$/, "") : "주재료 미입력";
+    }
+    const allergyRules = [
+      { label: "돼지", icon: "🐷", pattern: /돼지고기|돈육|삼겹살|목살|돼지\s*갈비|항정살|베이컨|햄|소시지|스팸/i },
+      { label: "소", icon: "🐮", pattern: /소고기|쇠고기|우육|차돌박이|양지|사태|소\s*갈비|등심|안심|우삼겹/i },
+      { label: "닭", icon: "🐔", pattern: /닭고기|닭가슴살|닭다리|닭날개|닭봉|닭안심|계육|치킨/i },
+      { label: "생선", icon: "🐟", pattern: /생선|고등어|삼치|연어|대구|명태|동태|가자미|갈치|참치|광어|우럭|어묵|피쉬/i },
+      { label: "해산물", icon: "🦐", pattern: /해산물|새우|오징어|문어|낙지|주꾸미|쭈꾸미|조개|홍합|바지락|굴|꽃게|대게|랍스터|가리비|전복/i },
+      { label: "땅콩", icon: "🥜", pattern: /땅콩|피넛|peanut/i },
+      { label: "매운재료", icon: "🌶️", pattern: /청양고추|홍고추|풋고추|건고추|고춧가루|고추장|캡사이신|페퍼론치노|스리라차|핫소스|칠리소스|마라/i },
+      { label: "밀가루", icon: "🌾", pattern: /밀가루|부침가루|튀김가루|중력분|박력분|강력분|빵가루|또띠아|파스타면|우동면|라면사리|소면|칼국수면|중화면|스파게티면/i }
+    ];
+    function allergyItems(recipe) {
+      const source = [recipe.mainIngredients, recipe.sauceIngredients].join("\n");
+      return allergyRules.filter(rule => rule.pattern.test(source));
+    }
+    function allergyBadges(recipe) {
+      const items = allergyItems(recipe);
+      if (!items.length) return "";
+      return `<span class="allergy-icons" aria-label="알러지 표시">${items.map(item => `<span class="allergy-icon" title="${escapeAttr(item.label)}" aria-label="${escapeAttr(item.label)}">${item.icon}</span>`).join("")}</span>`;
+    }
+    function renderMenu() {
+      const visible = visibleRecipes();
+      if (!visible.some(recipe => recipe.id === state.selectedId)) state.selectedId = visible[0]?.id || null;
+      if (!visible.length) {
+        els.recipeGroups.innerHTML = '<div class="empty">검색 결과가 없습니다.</div>';
+        renderDetail(null);
+        return;
+      }
+      els.recipeGroups.innerHTML = visible.map(recipe => recipeButton(recipe, "data-recipe-id")).join("");
+      els.recipeGroups.querySelectorAll("[data-recipe-id]").forEach(button => {
+        button.addEventListener("click", () => {
+          state.selectedId = button.dataset.recipeId;
+          renderMenu();
+        });
+      });
+      els.recipeGroups.querySelectorAll("[data-edit-recipe]").forEach(button => {
+        button.addEventListener("click", () => openRecipeModal(button.dataset.editRecipe));
+      });
+      els.recipeGroups.querySelectorAll("[data-delete-recipe]").forEach(button => {
+        button.addEventListener("click", () => {
+          if (window.confirm("이 메뉴를 삭제할까요? 캘린더에 등록된 같은 메뉴도 함께 비워집니다.")) {
+            deleteRecipe(button.dataset.deleteRecipe);
+          }
+        });
+      });
+      renderDetail(recipes.find(recipe => recipe.id === state.selectedId));
+    }
+    function recipeButton(recipe, attrName) {
+      return `
+        <div class="recipe-card ${recipe.id === state.selectedId ? "selected" : ""}">
+          <div class="recipe-card-head">
+            <button type="button" class="recipe-open" ${attrName}="${escapeAttr(recipe.id)}">
+              <div class="recipe-name"><span class="recipe-title"><span>${escapeHtml(recipe.name)}</span>${allergyBadges(recipe)}</span></div>
+              <div class="badge-row">
+                <span class="badge ${typeClass(recipe.type)}">${escapeHtml(recipe.type)}</span>
+                <span class="badge">${escapeHtml(recipe.time || "미정")}</span>
+                <span class="badge">${escapeHtml(primaryIngredient(recipe))}</span>
+              </div>
+            </button>
+            <div class="recipe-actions">
+              <button type="button" class="mini-btn" data-edit-recipe="${escapeAttr(recipe.id)}">수정</button>
+              <button type="button" class="mini-btn danger" data-delete-recipe="${escapeAttr(recipe.id)}">삭제</button>
+            </div>
+          </div>
+        </div>`;
+    }
+    function renderDetail(recipe) {
+      if (!recipe) {
+        els.recipeDetail.innerHTML = '<div class="empty">메뉴를 선택하면 재료, 레시피, 소요시간이 표시됩니다.</div>';
+        return;
+      }
+      els.recipeDetail.innerHTML = `
+        <h3>${escapeHtml(recipe.name)} ${allergyBadges(recipe)}</h3>
+        <div class="badge-row">
+          <span class="badge ${typeClass(recipe.type)}">${escapeHtml(recipe.type)}</span>
+          <span class="badge">소요시간 ${escapeHtml(recipe.time || "미정")}</span>
+          <span class="badge">${escapeHtml(recipe.language)}</span>
+        </div>
+        ${detailBlock("주재료", recipe.mainIngredients)}
+        ${detailBlock("소스재료", recipe.sauceIngredients)}
+        ${detailBlock("레시피", recipe.recipe)}
+        ${recipe.notes ? detailBlock("주의점", recipe.notes) : ""}
+        ${menuStatsHtml()}`;
+    }
+    function detailBlock(title, body) { return `<section class="detail-block"><strong>${escapeHtml(title)}</strong><pre>${escapeHtml(body || "-")}</pre></section>`; }
+    function menuStatsHtml() {
+      const counts = { filled: 0, "메인": 0, "사이드": 0, "샐러드": 0 };
+      visibleRecipes().forEach(recipe => {
+        counts.filled += 1;
+        counts[recipe.type] = (counts[recipe.type] || 0) + 1;
+      });
+      return `
+        <div class="summary">
+          <div class="stat"><span>등록 메뉴</span><strong>${counts.filled}</strong></div>
+          <div class="stat"><span>메인</span><strong>${counts["메인"]}</strong></div>
+          <div class="stat"><span>사이드</span><strong>${counts["사이드"]}</strong></div>
+          <div class="stat"><span>샐러드</span><strong>${counts["샐러드"]}</strong></div>
+        </div>
+      `;
+    }
+    function openRecipeModal(recipeId = null) {
+      state.editingRecipeId = recipeId;
+      const recipe = recipes.find(item => item.id === recipeId);
+      document.querySelector("#newRecipeTitle").textContent = recipe ? "메뉴수정" : "신규메뉴등록";
+      document.querySelector("#newName").value = recipe?.name || "";
+      document.querySelector("#newType").value = recipe?.type || "메인";
+      document.querySelector("#newTime").value = recipe?.time || "";
+      document.querySelector("#newIngredients").value = recipe?.mainIngredients || "";
+      document.querySelector("#newSauce").value = recipe?.sauceIngredients || "";
+      document.querySelector("#newRecipeText").value = recipe?.recipe || "";
+      document.querySelector("#newNotes").value = recipe?.notes || "";
+      els.modal.classList.add("open");
+    }
+    function closeRecipeModal() {
+      state.editingRecipeId = null;
+      document.querySelector("#newRecipeForm").reset();
+      document.querySelector("#newRecipeTitle").textContent = "신규메뉴등록";
+      els.modal.classList.remove("open");
+    }
+    function deleteRecipe(recipeId) {
+      const index = recipes.findIndex(recipe => recipe.id === recipeId);
+      if (index === -1) return;
+      recipes.splice(index, 1);
+      const savedIndex = savedRecipes.findIndex(recipe => recipe.id === recipeId);
+      if (savedIndex >= 0) {
+        savedRecipes.splice(savedIndex, 1);
+        saveJson(recipeStoreKey, savedRecipes);
+      }
+      if (starterRecipes.some(recipe => recipe.id === recipeId) && !deletedRecipeIds.includes(recipeId)) {
+        deletedRecipeIds.push(recipeId);
+        saveJson(deletedRecipeStoreKey, deletedRecipeIds);
+      }
+      Object.keys(state.plan).forEach(key => {
+        if (state.plan[key]?.recipeId === recipeId) delete state.plan[key];
+      });
+      saveJson(planStoreKey, state.plan);
+      if (state.selectedId === recipeId) state.selectedId = recipes[0]?.id || null;
+      renderAll();
+    }
+    function normalizeRecipeRecord(record, index = 0, prefix = "sheet") {
+      const source = record || {};
+      const value = (...names) => {
+        const keys = Object.keys(source);
+        const wanted = names.map(normalizeHeader);
+        const key = keys.find(item => wanted.includes(normalizeHeader(item)));
+        return key ? String(source[key] || "").trim() : "";
+      };
+      const name = value("메뉴 이름", "메뉴이름", "name", "menu");
+      if (!name) return null;
+      return {
+        id: value("id", "메뉴ID", "recipeId") || `${prefix}-${Date.now()}-${index}`,
+        language: value("언어", "language") || state.language,
+        school: value("학교", "학교코드", "school"),
+        chefTeam: value("쉐프팀", "작성자", "chef", "author"),
+        type: normalizeType(value("분류", "메인/사이드", "메인사이드", "type")) || "메인",
+        name,
+        time: value("소요시간", "시간", "time"),
+        mainIngredients: value("주재료", "재료", "main ingredients"),
+        sauceIngredients: value("소스재료", "소스", "sauce ingredients"),
+        recipe: value("레시피", "recipe"),
+        notes: value("주의사항", "주의점", "notes")
+      };
+    }
+    function upsertLocalRecipes(incoming) {
+      incoming.forEach(recipe => {
+        const recipeIndex = recipes.findIndex(item => item.id === recipe.id);
+        if (recipeIndex >= 0) recipes[recipeIndex] = recipe;
+        else recipes.push(recipe);
+        const savedIndex = savedRecipes.findIndex(item => item.id === recipe.id);
+        if (savedIndex >= 0) savedRecipes[savedIndex] = recipe;
+        else savedRecipes.push(recipe);
+      });
+      saveJson(recipeStoreKey, savedRecipes);
+      if (!recipes.some(recipe => recipe.id === state.selectedId)) state.selectedId = recipes[0]?.id || null;
+      renderAll();
+    }
+    function openSheetsModal() {
+      els.sheetsUrl.value = state.sheetsUrl;
+      els.sheetsStatus.textContent = state.sheetsUrl ? "저장된 URL이 있습니다. 시트에서 메뉴를 불러올 수 있습니다." : "URL을 저장하면 메뉴 데이터를 Google Sheets에서 불러올 수 있습니다.";
+      els.sheetsModal.classList.add("open");
+    }
+    function closeSheetsModal() { els.sheetsModal.classList.remove("open"); }
+    function saveSheetsUrl() {
+      state.sheetsUrl = els.sheetsUrl.value.trim();
+      saveJson(sheetsSettingsKey, { url: state.sheetsUrl });
+      els.sheetsStatus.textContent = state.sheetsUrl ? "Google Sheets 연동 URL을 저장했습니다." : "연동 URL을 비웠습니다.";
+    }
+    async function syncRecipesFromSheets(options = {}) {
+      if (options.saveUrl !== false) saveSheetsUrl();
+      if (!state.sheetsUrl) return;
+      els.sheetsStatus.textContent = "Google Sheets에서 메뉴를 불러오는 중입니다...";
+      try {
+        const data = await loadSheetsData();
+        if (data && data.ok === false) throw new Error(data.error || "Apps Script 오류");
+        const rows = Array.isArray(data) ? data : data.recipes || data.rows || [];
+        const imported = rows.map((row, index) => normalizeRecipeRecord(row, index)).filter(Boolean);
+        if (!imported.length) {
+          els.sheetsStatus.textContent = "불러올 메뉴를 찾지 못했습니다. 시트 헤더를 확인해주세요.";
+          return;
+        }
+        upsertLocalRecipes(imported);
+        els.sheetsStatus.textContent = `${imported.length}개 메뉴를 Google Sheets에서 불러왔습니다.`;
+      } catch (error) {
+        els.sheetsStatus.textContent = `불러오지 못했습니다: ${error.message || "Apps Script URL과 배포 권한을 확인해주세요."}`;
+      }
+    }
+    async function loadSheetsData() {
+      const url = withQuery(state.sheetsUrl, { action: "list" });
+      try {
+        const response = await fetch(url, { cache: "no-store" });
+        if (!response.ok) throw new Error("fetch failed");
+        return await response.json();
+      } catch {
+        return loadSheetsDataJsonp();
+      }
+    }
+    function loadSheetsDataJsonp() {
+      return new Promise((resolve, reject) => {
+        const callbackName = `gpahSheetsCallback${Date.now()}`;
+        const script = document.createElement("script");
+        const timer = setTimeout(() => {
+          delete window[callbackName];
+          script.remove();
+          reject(new Error("Apps Script 응답 시간이 초과되었습니다."));
+        }, 12000);
+        window[callbackName] = data => {
+          clearTimeout(timer);
+          delete window[callbackName];
+          script.remove();
+          resolve(data);
+        };
+        script.onerror = () => {
+          clearTimeout(timer);
+          delete window[callbackName];
+          script.remove();
+          reject(new Error("Apps Script URL을 불러오지 못했습니다."));
+        };
+        script.src = withQuery(state.sheetsUrl, { action: "list", callback: callbackName });
+        document.body.appendChild(script);
+      });
+    }
+    function withQuery(baseUrl, params) {
+      const separator = baseUrl.includes("?") ? "&" : "?";
+      return `${baseUrl}${separator}${Object.entries(params).map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join("&")}`;
+    }
+    async function postRecipeToSheets(recipe) {
+      if (!state.sheetsUrl) return;
+      const form = new FormData();
+      form.append("action", "upsert");
+      form.append("data", JSON.stringify(recipe));
+      try {
+        await fetch(state.sheetsUrl, { method: "POST", mode: "no-cors", body: form });
+      } catch {
+        const formEl = document.createElement("form");
+        const frameName = `gpahSheetsFrame${Date.now()}`;
+        const frame = document.createElement("iframe");
+        frame.name = frameName;
+        frame.hidden = true;
+        formEl.method = "POST";
+        formEl.action = state.sheetsUrl;
+        formEl.target = frameName;
+        formEl.hidden = true;
+        [["action", "upsert"], ["data", JSON.stringify(recipe)]].forEach(([name, value]) => {
+          const input = document.createElement("input");
+          input.name = name;
+          input.value = value;
+          formEl.appendChild(input);
+        });
+        document.body.append(frame, formEl);
+        formEl.submit();
+        setTimeout(() => { frame.remove(); formEl.remove(); }, 4000);
+      }
+    }
+    function openMealDetail(week, day, meal) {
+      const dayIndex = days.indexOf(day);
+      const items = mealSlots[meal].map(([slot, label]) => {
+        const entry = state.plan[planKey(week, day, meal, slot)];
+        const recipe = recipes.find(item => item.id === entry?.recipeId);
+        return { slot, label, entry, recipe };
+      }).filter(item => item.slot === "free" ? item.entry?.customText : item.recipe);
+      state.activeMealDetail = { week, day, meal, items };
+      document.querySelector("#mealDetailTitle").textContent = `${week}주차 ${day}요일 ${mealLabels[meal]} · ${formatDate(dateForCell(week, dayIndex))}`;
+      els.mealDetailBody.innerHTML = items.map(item => {
+        if (item.slot === "free") {
+          return detailBlock(item.label, item.entry.customText);
+        }
+        return `
+          <section class="detail-block">
+            <strong>${escapeHtml(item.label)} · ${escapeHtml(item.recipe.name)}</strong>
+            <pre>${escapeHtml([
+              `주재료\n${item.recipe.mainIngredients || "-"}`,
+              `소스재료\n${item.recipe.sauceIngredients || "-"}`,
+              `레시피\n${item.recipe.recipe || "-"}`,
+              `주의사항\n${item.recipe.notes || "-"}`
+            ].join("\n\n"))}</pre>
+          </section>
+        `;
+      }).join("");
+      els.mealDetailModal.classList.add("open");
+    }
+    function downloadMealDetail() {
+      const detail = state.activeMealDetail;
+      if (!detail) return;
+      const dayIndex = days.indexOf(detail.day);
+      const title = `${state.calendarTitle || currentCourse().label} ${detail.week}주차 ${detail.day}요일 ${mealLabels[detail.meal]}`;
+      const sections = detail.items.map(item => {
+        if (item.slot === "free") {
+          return `<section><h2>${escapeHtml(item.label)}</h2><pre>${escapeHtml(item.entry.customText)}</pre></section>`;
+        }
+        return `
+          <section>
+            <h2>${escapeHtml(item.label)} · ${escapeHtml(item.recipe.name)}</h2>
+            <h3>주재료</h3><pre>${escapeHtml(item.recipe.mainIngredients || "-")}</pre>
+            <h3>소스재료</h3><pre>${escapeHtml(item.recipe.sauceIngredients || "-")}</pre>
+            <h3>레시피</h3><pre>${escapeHtml(item.recipe.recipe || "-")}</pre>
+            <h3>주의사항</h3><pre>${escapeHtml(item.recipe.notes || "-")}</pre>
+          </section>
+        `;
+      }).join("");
+      const html = `<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>${escapeHtml(title)}</title>
+  <style>
+    body { font-family: "Noto Sans KR", Arial, sans-serif; color: #17211f; margin: 28px; line-height: 1.55; }
+    h1 { margin: 0 0 6px; font-size: 24px; }
+    .meta { color: #66736f; margin-bottom: 24px; font-weight: 700; }
+    section { page-break-inside: avoid; border-top: 1px solid #dbe2dd; padding-top: 16px; margin-top: 18px; }
+    h2 { font-size: 18px; margin: 0 0 12px; }
+    h3 { font-size: 13px; color: #66736f; margin: 16px 0 6px; }
+    pre { white-space: pre-wrap; font-family: inherit; margin: 0; }
+    @media print { body { margin: 18mm; } }
+  </style>
+</head>
+<body>
+  <h1>${escapeHtml(title)}</h1>
+  <div class="meta">${escapeHtml(formatDate(dateForCell(detail.week, dayIndex)))} · ${escapeHtml(teamForWeek(detail.week).label)} · ${escapeHtml(state.language)}</div>
+  ${sections || "<p>등록된 메뉴가 없습니다.</p>"}
+</body>
+</html>`;
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${sanitizeFilename(title)}.html`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+    function renderCalendar() {
+      const parts = ['<div class="cal-head cal-cell">주차</div>', '<div class="cal-head cal-cell">식사</div>'];
+      days.forEach(day => parts.push(`<div class="cal-head cal-cell">${day}</div>`));
+      for (let week = 1; week <= currentCourse().weeks; week++) {
+        const team = teamForWeek(week);
+        parts.push(`<div class="cal-cell week-cell team-${team.key}" style="grid-row: span 2">${week}주차<br>${team.label}</div>`);
+        ["lunch", "dinner"].forEach(meal => {
+          parts.push(`<div class="cal-cell meal-label team-${team.key}">${mealLabels[meal]}</div>`);
+          days.forEach(day => parts.push(renderMealCell(week, day, meal, team.key)));
+        });
+      }
+      els.calendar.innerHTML = parts.join("");
+      els.calendar.querySelectorAll("[data-meal-detail]").forEach(cell => {
+        cell.addEventListener("click", () => {
+          openMealDetail(Number(cell.dataset.week), cell.dataset.day, cell.dataset.meal);
+        });
+      });
+      renderMobileCalendar();
+      renderCalendarHeading();
+    }
+    function renderMobileCalendar() {
+      const activeWeek = state.mobileWeek || 1;
+      const team = teamForWeek(activeWeek);
+      const weekTabs = Array.from({ length: currentCourse().weeks }, (_, index) => {
+        const week = index + 1;
+        return `<button type="button" class="week-tab ${week === activeWeek ? "active" : ""}" data-mobile-week="${week}">${week}주차</button>`;
+      }).join("");
+      const cards = days.map((day, dayIndex) => {
+        const date = formatDate(dateForCell(activeWeek, dayIndex));
+        return `
+          <section class="mobile-day-card">
+            <div class="mobile-day-head"><span>${escapeHtml(day)}요일</span><span>${escapeHtml(date)} · ${escapeHtml(team.label)}</span></div>
+            ${renderMobileMeal(activeWeek, day, "lunch")}
+            ${renderMobileMeal(activeWeek, day, "dinner")}
+          </section>
+        `;
+      }).join("");
+      els.mobileCalendar.innerHTML = `
+        <div class="week-tabs">${weekTabs}</div>
+        <div class="mobile-week-body">${cards}</div>
+      `;
+      els.mobileCalendar.querySelectorAll("[data-mobile-week]").forEach(button => {
+        button.addEventListener("click", () => {
+          state.mobileWeek = Number(button.dataset.mobileWeek);
+          renderMobileCalendar();
+        });
+      });
+      els.mobileCalendar.querySelectorAll("[data-mobile-meal-detail]").forEach(button => {
+        button.addEventListener("click", () => {
+          openMealDetail(Number(button.dataset.week), button.dataset.day, button.dataset.meal);
+        });
+      });
+    }
+    function renderMobileMeal(week, day, meal) {
+      const selected = mealSlots[meal].map(([slot, label]) => {
+        const entry = state.plan[planKey(week, day, meal, slot)];
+        const recipe = recipes.find(item => item.id === entry?.recipeId);
+        const value = slot === "free" ? entry?.customText : recipe?.name;
+        return { label, value };
+      }).filter(item => item.value);
+      const author = currentAuthor({ week, day, meal });
+      const hasMenu = selected.length > 0;
+      const lines = hasMenu
+        ? selected.map(item => `<div class="mobile-menu-line"><strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(item.value)}</span></div>`).join("")
+        : '<div class="free-entry">등록된 메뉴 없음</div>';
+      return `
+        <button type="button" class="mobile-meal ${hasMenu ? "has-menu" : ""}" ${hasMenu ? `data-mobile-meal-detail data-week="${week}" data-day="${escapeAttr(day)}" data-meal="${meal}"` : ""}>
+          <div class="mobile-meal-title">${escapeHtml(mealLabels[meal])}</div>
+          ${lines}
+          ${author ? `<div class="author">작성자: ${escapeHtml(author)}</div>` : ""}
+        </button>
+      `;
+    }
+    function renderMealCell(week, day, meal, teamKey) {
+      const dayIndex = days.indexOf(day);
+      const cellDate = dateForCell(week, dayIndex);
+      const selected = mealSlots[meal].map(([slot, label]) => {
+        const entry = state.plan[planKey(week, day, meal, slot)];
+        const recipe = recipes.find(item => item.id === entry?.recipeId);
+        return { slot, label, entry, recipe };
+      });
+      const author = currentAuthor({ week, day, meal });
+      const hasMenu = selected.some(item => item.slot === "free" ? item.entry?.customText : item.recipe);
+      return `
+        <div class="cal-cell meal-cell team-${teamKey} ${hasMenu ? "has-menu" : ""}" ${hasMenu ? `data-meal-detail data-week="${week}" data-day="${escapeAttr(day)}" data-meal="${meal}"` : ""}>
+          <div class="cell-date">${escapeHtml(formatDate(cellDate))}</div>
+          <div class="registered">
+            ${selected.map(item => {
+              const value = item.slot === "free" ? item.entry?.customText : item.recipe?.name;
+              return value ? `<div class="registered-line"><strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(value)}</span></div>` : "";
+            }).join("") || '<div class="free-entry">등록된 메뉴 없음</div>'}
+          </div>
+          ${author ? `<div class="author">작성자: ${escapeHtml(author)}</div>` : ""}
+        </div>`;
+    }
+    function renderDrawer() {
+      const target = state.activeRegistration;
+      if (!target) {
+        els.drawer.classList.remove("open");
+        els.drawer.innerHTML = "";
+        return;
+      }
+      const slots = mealSlots[target.meal];
+      const activeType = slotType[state.activeSlot];
+      const isFreeSlot = state.activeSlot === "free";
+      els.drawer.classList.add("open");
+      els.drawer.innerHTML = `
+        <div class="drawer-head">
+          <div>
+            <h3>메뉴등록하기</h3>
+            <div class="badge-row">
+              <span class="badge">${escapeHtml(currentCourse().label)}</span>
+              <span class="badge">${escapeHtml(state.language)}</span>
+              <span class="badge">${escapeHtml(teamForWeek(target.week).label)}</span>
+            </div>
+          </div>
+          <button type="button" class="btn" id="clearMeal">선택한 식사 비우기</button>
+        </div>
+        <div class="drawer-grid">
+          <div class="registration-fields">
+            <div class="field">
+              <label for="authorName">작성자 이름</label>
+              <input id="authorName" placeholder="작성자 이름" value="${escapeAttr(state.registrationAuthor || currentAuthor(target))}">
+            </div>
+            <div class="target-grid">
+              <div class="field">
+                <label for="targetWeek">날짜</label>
+                <select id="targetWeek">
+                  ${Array.from({ length: currentCourse().weeks }, (_, index) => index + 1).map(week => `<option value="${week}" ${week === target.week ? "selected" : ""}>${week}주차</option>`).join("")}
+                </select>
+              </div>
+              <div class="field">
+                <label for="targetDay">요일</label>
+                <select id="targetDay">
+                  ${days.map(day => `<option value="${escapeAttr(day)}" ${day === target.day ? "selected" : ""}>${day}</option>`).join("")}
+                </select>
+              </div>
+              <div class="field">
+                <label for="targetMeal">식사</label>
+                <select id="targetMeal">
+                  ${Object.entries(mealLabels).map(([meal, label]) => `<option value="${meal}" ${meal === target.meal ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
+                </select>
+              </div>
+            </div>
+            <div class="slot-tabs" aria-label="등록 슬롯">
+              ${slots.map(([slot, label]) => `<button type="button" class="${slot === state.activeSlot ? "active" : ""}" data-slot="${slot}">${escapeHtml(label)}</button>`).join("")}
+            </div>
+          </div>
+          ${isFreeSlot ? renderFreeEntry(target) : `
+            <div>
+              <div class="field" style="margin-bottom: 10px">
+                <label for="calendarSearch">메뉴 검색</label>
+                <input id="calendarSearch" type="search" placeholder="메뉴명 또는 재료" value="${escapeAttr(state.calendarSearch)}">
+              </div>
+              <div class="drawer-results">
+                ${drawerResultsHtml()}
+              </div>
+            </div>
+          `}
+        </div>`;
+      const authorInput = els.drawer.querySelector("#authorName");
+      authorInput.addEventListener("input", event => {
+        state.registrationAuthor = event.target.value;
+      });
+      els.drawer.querySelector("#targetWeek").addEventListener("change", updateTargetFromDrawer);
+      els.drawer.querySelector("#targetDay").addEventListener("change", updateTargetFromDrawer);
+      els.drawer.querySelector("#targetMeal").addEventListener("change", updateTargetFromDrawer);
+      els.drawer.querySelectorAll("[data-slot]").forEach(button => button.addEventListener("click", () => {
+        state.activeSlot = button.dataset.slot;
+        renderDrawer();
+      }));
+      const drawerSearch = els.drawer.querySelector("#calendarSearch");
+      if (drawerSearch) {
+        drawerSearch.addEventListener("input", event => {
+          state.calendarSearch = event.target.value;
+          const resultsBox = els.drawer.querySelector(".drawer-results");
+          if (resultsBox) {
+            resultsBox.innerHTML = drawerResultsHtml();
+            bindDrawerResultActions();
+          }
+        });
+      }
+      bindDrawerResultActions();
+      const saveFree = els.drawer.querySelector("#saveFreeEntry");
+      if (saveFree) {
+        saveFree.addEventListener("click", () => {
+          state.registrationAuthor = els.drawer.querySelector("#authorName").value.trim();
+          const value = els.drawer.querySelector("#freeText").value.trim();
+          const key = planKey(target.week, target.day, target.meal, "free");
+          if (value) {
+            state.plan[key] = { customText: value, author: state.registrationAuthor };
+          } else {
+            delete state.plan[key];
+          }
+          saveJson(planStoreKey, state.plan);
+          renderCalendar();
+          renderDrawer();
+          renderStats();
+        });
+      }
+      els.drawer.querySelector("#clearMeal").addEventListener("click", () => {
+        slots.forEach(([slot]) => delete state.plan[planKey(target.week, target.day, target.meal, slot)]);
+        saveJson(planStoreKey, state.plan);
+        renderCalendar();
+        renderDrawer();
+        renderStats();
+      });
+    }
+    function drawerResultsHtml() {
+      const activeType = slotType[state.activeSlot];
+      const results = recipes.filter(recipe => recipeMatchesContext(recipe) && recipe.type === activeType && recipeMatchesQuery(recipe, state.calendarSearch));
+      return results.length ? results.map(recipe => `
+        <div class="drawer-card">
+          <div>
+            <div class="recipe-name"><span class="recipe-title"><span>${escapeHtml(recipe.name)}</span>${allergyBadges(recipe)}</span><span class="badge ${typeClass(recipe.type)}">${escapeHtml(recipe.type)}</span></div>
+            <div class="badge-row"><span class="badge">${escapeHtml(recipe.time || "시간 미정")}</span><span class="badge">${escapeHtml(primaryIngredient(recipe))}</span></div>
+          </div>
+          <button type="button" class="plus-btn" data-assign-recipe="${escapeAttr(recipe.id)}" aria-label="${escapeAttr(recipe.name)} 추가">+</button>
+        </div>`).join("") : '<div class="empty">해당 슬롯에 등록할 메뉴가 없습니다.</div>';
+    }
+    function bindDrawerResultActions() {
+      const target = state.activeRegistration;
+      if (!target) return;
+      els.drawer.querySelectorAll("[data-assign-recipe]").forEach(button => button.addEventListener("click", () => {
+        state.registrationAuthor = els.drawer.querySelector("#authorName").value.trim();
+        state.plan[planKey(target.week, target.day, target.meal, state.activeSlot)] = {
+          recipeId: button.dataset.assignRecipe,
+          author: state.registrationAuthor
+        };
+        saveJson(planStoreKey, state.plan);
+        renderCalendar();
+        renderDrawer();
+        renderStats();
+      }));
+    }
+    function renderFreeEntry(target) {
+      const entry = state.plan[planKey(target.week, target.day, target.meal, "free")];
+      return `
+        <div class="registration-fields">
+          <div class="field">
+            <label for="freeText">빈칸 자유입력</label>
+            <input id="freeText" placeholder="밥, 빵, 과일, 음료 등" value="${escapeAttr(entry?.customText || "")}">
+          </div>
+          <button type="button" class="btn primary" id="saveFreeEntry">빈칸 등록</button>
+        </div>
+      `;
+    }
+    function updateTargetFromDrawer() {
+      state.registrationAuthor = els.drawer.querySelector("#authorName").value;
+      state.activeRegistration = {
+        week: Number(els.drawer.querySelector("#targetWeek").value),
+        day: els.drawer.querySelector("#targetDay").value,
+        meal: els.drawer.querySelector("#targetMeal").value
+      };
+      state.activeSlot = mealSlots[state.activeRegistration.meal].some(([slot]) => slot === state.activeSlot) ? state.activeSlot : mealSlots[state.activeRegistration.meal][0][0];
+      renderDrawer();
+    }
+    function currentAuthor(target) {
+      return mealSlots[target.meal].map(([slot]) => state.plan[planKey(target.week, target.day, target.meal, slot)]?.author).find(Boolean) || "";
+    }
+    function teamForWeek(week) {
+      const startsWithA = state.startTeam === "a";
+      const isStartWeek = week % 2 === 1;
+      const key = startsWithA === isStartWeek ? "a" : "b";
+      return key === "a" ? { key: "a", label: "A팀" } : { key: "b", label: "B팀" };
+    }
+    function parseDate(value) {
+      const parts = String(value || "").split("-").map(Number);
+      if (parts.length !== 3 || parts.some(Number.isNaN)) return new Date(2026, 7, 31);
+      return new Date(parts[0], parts[1] - 1, parts[2]);
+    }
+    function addDays(date, amount) {
+      const next = new Date(date);
+      next.setDate(next.getDate() + amount);
+      return next;
+    }
+    function dateForCell(week, dayIndex) {
+      return addDays(parseDate(state.startDate), (week - 1) * 7 + dayIndex);
+    }
+    function formatDate(date) {
+      return `${date.getMonth() + 1}/${date.getDate()}`;
+    }
+    function renderCalendarHeading() {
+      const endDate = dateForCell(currentCourse().weeks, days.length - 1);
+      els.calendarHeading.innerHTML = `
+        <h3>${escapeHtml(state.calendarTitle || currentCourse().label)}</h3>
+        <span>${escapeHtml(formatDate(parseDate(state.startDate)))} - ${escapeHtml(formatDate(endDate))} · ${escapeHtml(state.language)} · ${escapeHtml(state.startTeam === "a" ? "A팀 시작" : "B팀 시작")}</span>
+      `;
+    }
+    function saveSettings() {
+      saveJson(calendarSettingsKey, {
+        calendarTitle: state.calendarTitle,
+        startDate: state.startDate,
+        startTeam: state.startTeam
+      });
+    }
+    function planKey(week, day, meal, slot) { return `${state.course}|${state.language}|${week}|${day}|${meal}|${slot}`; }
+    function renderStats() {
+      renderDetail(recipes.find(recipe => recipe.id === state.selectedId));
+    }
+    function normalizeHeader(value) {
+      return normalize(value).replace(/[()/_-]/g, "");
+    }
+    function normalizeType(value) {
+      if (String(value).includes("사이드")) return "사이드";
+      if (String(value).includes("샐러드")) return "샐러드";
+      if (String(value).includes("메인")) return "메인";
+      return value;
+    }
+    function syncSelectors() {
+      els.calendarCourseSelect.value = state.course;
+      els.calendarLanguageSelect.value = state.language;
+      els.calendarTitle.value = state.calendarTitle;
+      els.startDate.value = state.startDate;
+      els.startTeam.value = state.startTeam;
+    }
+    function setCourse(value) {
+      state.course = value;
+      state.activeRegistration = null;
+      state.mobileWeek = Math.min(state.mobileWeek || 1, currentCourse().weeks);
+      syncSelectors();
+      renderAll();
+    }
+    function setLanguage(value) { state.language = value; state.activeRegistration = null; syncSelectors(); renderAll(); }
+    function renderAll() { renderMenu(); renderCalendar(); renderDrawer(); renderStats(); }
+    function groupBy(items, getKey) {
+      return items.reduce((groups, item) => {
+        const key = getKey(item);
+        groups[key] = groups[key] || [];
+        groups[key].push(item);
+        return groups;
+      }, {});
+    }
+    function exportPlan() {
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        course: currentCourse().label,
+        language: state.language,
+        plan: Object.entries(state.plan)
+          .filter(([key]) => key.startsWith(`${state.course}|${state.language}|`))
+          .map(([key, entry]) => {
+            const [, , week, day, meal, slot] = key.split("|");
+            const recipe = recipes.find(item => item.id === entry.recipeId);
+            return {
+              week: Number(week),
+              team: teamForWeek(Number(week)).label,
+              day,
+              meal: mealLabels[meal],
+              slot: slotType[slot],
+              author: entry.author || "",
+              menu: slot === "free" ? entry.customText || "" : recipe?.name || "",
+              time: recipe?.time || "",
+              mainIngredients: recipe?.mainIngredients || ""
+            };
+          })
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `gpah-${state.course}-${state.language}-plan.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+    function exportExcel() {
+      const rows = [];
+      rows.push([state.calendarTitle || currentCourse().label, currentCourse().label, state.language, state.startTeam === "a" ? "A팀 시작" : "B팀 시작"]);
+      rows.push(["주차", "팀", "날짜", "요일", "식사", "작성자", "메인", "사이드", "샐러드", "빈칸"]);
+      for (let week = 1; week <= currentCourse().weeks; week++) {
+        const team = teamForWeek(week).label;
+        ["lunch", "dinner"].forEach(meal => {
+          days.forEach((day, dayIndex) => {
+            const author = currentAuthor({ week, day, meal });
+            rows.push([
+              `${week}주차`,
+              team,
+              formatDate(dateForCell(week, dayIndex)),
+              day,
+              mealLabels[meal],
+              author,
+              calendarCellValue(week, day, meal, "main"),
+              calendarCellValue(week, day, meal, "side"),
+              calendarCellValue(week, day, meal, "salad"),
+              calendarCellValue(week, day, meal, "free")
+            ]);
+          });
+        });
+      }
+      const table = rows.map(row => `<tr>${row.map(cell => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("");
+      const html = `<!doctype html><html><head><meta charset="utf-8"></head><body><table border="1">${table}</table></body></html>`;
+      const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${sanitizeFilename(state.calendarTitle || currentCourse().label)}.xls`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+    function calendarCellValue(week, day, meal, slot) {
+      const entry = state.plan[planKey(week, day, meal, slot)];
+      if (!entry) return "";
+      if (slot === "free") return entry.customText || "";
+      return recipes.find(recipe => recipe.id === entry.recipeId)?.name || "";
+    }
+    function sanitizeFilename(value) {
+      return String(value || "calendar").replace(/[\\/:*?"<>|]/g, "_");
+    }
+    function loadJson(key, fallback) {
+      try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); } catch { return fallback; }
+    }
+    function saveJson(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+    function escapeAttr(value) { return escapeHtml(value).replace(/`/g, "&#96;"); }
+
+    document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => {
+      document.querySelectorAll("[data-view]").forEach(item => item.classList.toggle("active", item === button));
+      document.querySelector("#menuView").classList.toggle("active", button.dataset.view === "menu");
+      document.querySelector("#calendarView").classList.toggle("active", button.dataset.view === "calendar");
+    }));
+    document.querySelectorAll("[data-category]").forEach(button => button.addEventListener("click", () => {
+      state.menuCategory = button.dataset.category;
+      document.querySelectorAll("[data-category]").forEach(item => item.classList.toggle("active", item === button));
+      renderMenu();
+    }));
+    els.search.addEventListener("input", event => { state.search = event.target.value; renderMenu(); });
+    els.calendarCourseSelect.addEventListener("change", event => setCourse(event.target.value));
+    els.calendarLanguageSelect.addEventListener("change", event => setLanguage(event.target.value));
+    els.calendarTitle.addEventListener("input", event => {
+      state.calendarTitle = event.target.value;
+      saveSettings();
+      renderCalendarHeading();
+    });
+    els.startDate.addEventListener("change", event => {
+      state.startDate = event.target.value;
+      saveSettings();
+      renderCalendar();
+    });
+    els.startTeam.addEventListener("change", event => {
+      state.startTeam = event.target.value;
+      saveSettings();
+      renderCalendar();
+      renderDrawer();
+    });
+    document.querySelector("#openCurrentWeek").addEventListener("click", () => {
+      state.activeRegistration = { week: 1, day: "월", meal: "lunch" };
+      state.activeSlot = "main";
+      renderDrawer();
+    });
+    document.querySelector("#toggleCalendarSettings").addEventListener("click", () => {
+      els.calendarSettings.classList.toggle("open");
+    });
+    document.querySelector("#exportExcel").addEventListener("click", exportExcel);
+    document.querySelector("#printMealDetail").addEventListener("click", downloadMealDetail);
+    document.querySelector("#openNewRecipe").addEventListener("click", () => openRecipeModal());
+    document.querySelector("#cancelNewRecipe").addEventListener("click", closeRecipeModal);
+    document.querySelector("#openSheetsSettings").addEventListener("click", openSheetsModal);
+    document.querySelector("#closeSheetsSettings").addEventListener("click", closeSheetsModal);
+    document.querySelector("#saveSheetsSettings").addEventListener("click", saveSheetsUrl);
+    document.querySelector("#syncSheetsNow").addEventListener("click", syncRecipesFromSheets);
+    els.modal.addEventListener("click", event => { if (event.target === els.modal) closeRecipeModal(); });
+    els.sheetsModal.addEventListener("click", event => { if (event.target === els.sheetsModal) closeSheetsModal(); });
+    els.mealDetailModal.addEventListener("click", event => { if (event.target === els.mealDetailModal) els.mealDetailModal.classList.remove("open"); });
+    document.querySelector("#newRecipeForm").addEventListener("submit", async event => {
+      event.preventDefault();
+      const editingRecipe = recipes.find(recipe => recipe.id === state.editingRecipeId);
+      const recipe = {
+        id: editingRecipe?.id || `custom-${Date.now()}`,
+        language: editingRecipe?.language || state.language,
+        school: editingRecipe?.school || "",
+        chefTeam: editingRecipe?.chefTeam || "",
+        type: document.querySelector("#newType").value,
+        name: document.querySelector("#newName").value.trim(),
+        time: document.querySelector("#newTime").value.trim(),
+        mainIngredients: document.querySelector("#newIngredients").value.trim(),
+        sauceIngredients: document.querySelector("#newSauce").value.trim(),
+        recipe: document.querySelector("#newRecipeText").value.trim(),
+        notes: document.querySelector("#newNotes").value.trim()
+      };
+      if (editingRecipe) {
+        Object.assign(editingRecipe, recipe);
+        const savedIndex = savedRecipes.findIndex(item => item.id === recipe.id);
+        if (savedIndex >= 0) savedRecipes[savedIndex] = recipe;
+        else savedRecipes.push(recipe);
+      } else {
+        recipes.push(recipe);
+        savedRecipes.push(recipe);
+      }
+      saveJson(recipeStoreKey, savedRecipes);
+      state.selectedId = recipe.id;
+      closeRecipeModal();
+      renderAll();
+      await postRecipeToSheets(recipe);
+    });
+    syncSelectors();
+    renderAll();
+    if (state.sheetsUrl) syncRecipesFromSheets({ saveUrl: false });
+  </script>
+</body>
+</html>
