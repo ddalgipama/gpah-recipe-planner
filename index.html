@@ -209,6 +209,20 @@
     .stat { border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #fff; }
     .stat span { display: block; color: var(--muted); font-size: 0.76rem; font-weight: 800; }
     .stat strong { display: block; margin-top: 5px; font-size: 1.28rem; }
+    .purchase-tools {
+      display: grid; grid-template-columns: repeat(2, minmax(170px, 220px)) 1fr;
+      gap: 10px; align-items: end; padding: 16px; border-bottom: 1px solid var(--line); background: #f8faf8;
+    }
+    .purchase-body { display: grid; gap: 16px; padding: 16px; }
+    .purchase-table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+    .purchase-table { width: 100%; border-collapse: collapse; min-width: 680px; }
+    .purchase-table th, .purchase-table td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    .purchase-table th { color: var(--muted); background: #fbfcfb; font-size: 0.78rem; font-weight: 900; }
+    .purchase-table tr:last-child td { border-bottom: 0; }
+    .source-list { color: var(--muted); font-size: 0.78rem; line-height: 1.45; }
+    .needs-review { display: grid; gap: 8px; }
+    .review-item { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+    .review-item strong { display: block; margin-bottom: 4px; }
     .drawer { border-bottom: 1px solid var(--line); padding: 16px; background: #ffffff; display: none; }
     .drawer.open { display: block; }
     .drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
@@ -243,7 +257,7 @@
       .top-select, .btn { width: 100%; }
       .tabs { width: 100%; }
       .tab { flex: 1; min-width: 0; }
-      .category-tabs, .summary, .form-grid, .calendar-tools, .calendar-settings { grid-template-columns: 1fr; }
+      .category-tabs, .summary, .form-grid, .calendar-tools, .calendar-settings, .purchase-tools { grid-template-columns: 1fr; }
       .search-row { grid-template-columns: 1fr; }
       .calendar-wrap { display: none; }
       .mobile-calendar { display: block; }
@@ -265,6 +279,7 @@
     <nav class="tabs" aria-label="메인 화면">
       <button type="button" class="tab active" data-view="menu">메뉴검색</button>
       <button type="button" class="tab" data-view="calendar">캘린더</button>
+      <button type="button" class="tab" data-view="purchase">재료구매</button>
     </nav>
 
     <section class="view active" id="menuView">
@@ -304,7 +319,7 @@
       <section class="panel">
         <div class="panel-header"><h2 class="panel-title">과정 캘린더</h2></div>
         <div class="calendar-tools">
-          <button type="button" class="btn primary big-register" id="openCurrentWeek">메뉴등록하기</button>
+          <button type="button" class="btn primary big-register" id="openCurrentWeek">메뉴등록</button>
           <button type="button" class="btn small" id="toggleCalendarSettings">캘린더생성하기</button>
           <button type="button" class="btn small" id="exportExcel">엑셀다운로드</button>
         </div>
@@ -344,6 +359,27 @@
         <div class="calendar-heading" id="calendarHeading"></div>
         <div class="calendar-wrap"><div class="calendar" id="calendar"></div></div>
         <div class="mobile-calendar" id="mobileCalendar"></div>
+      </section>
+    </section>
+
+    <section class="view" id="purchaseView">
+      <section class="panel">
+        <div class="panel-header"><h2 class="panel-title">재료구매</h2></div>
+        <div class="purchase-tools">
+          <div class="field">
+            <label for="purchaseStart">시작일</label>
+            <input id="purchaseStart" type="date">
+          </div>
+          <div class="field">
+            <label for="purchaseEnd">종료일</label>
+            <input id="purchaseEnd" type="date">
+          </div>
+          <div class="top-actions">
+            <button type="button" class="btn" id="purchaseThisWeek">1주일</button>
+            <button type="button" class="btn" id="purchaseFullCourse">전체 과정</button>
+          </div>
+        </div>
+        <div class="purchase-body" id="purchaseResults"></div>
       </section>
     </section>
   </main>
@@ -421,10 +457,10 @@
     const days = ["월", "화", "수", "목", "금"];
     const mealLabels = { lunch: "점심", dinner: "저녁" };
     const mealSlots = {
-      lunch: [["main", "메인"], ["side", "사이드"], ["salad", "샐러드"], ["free", "빈칸"]],
-      dinner: [["main", "메인"], ["side", "사이드"], ["salad", "샐러드"], ["free", "빈칸"]]
+      lunch: [["main", "메인"], ["side", "사이드"], ["salad", "샐러드"], ["rice", "밥"], ["free", "그외메뉴"]],
+      dinner: [["main", "메인"], ["side", "사이드"], ["salad", "샐러드"], ["rice", "밥"], ["free", "그외메뉴"]]
     };
-    const slotType = { main: "메인", side: "사이드", salad: "샐러드", free: "빈칸" };
+    const slotType = { main: "메인", side: "사이드", salad: "샐러드", rice: "밥", free: "그외메뉴" };
     const recipeStoreKey = "gpah-recipes-v2";
     const deletedRecipeStoreKey = "gpah-deleted-recipes-v1";
     const planStoreKey = "gpah-calendar-plan-v2";
@@ -451,6 +487,8 @@
       calendarSearch: "",
       registrationAuthor: "",
       sheetsUrl: sheetsSettings.url || defaultSheetsUrl,
+      purchaseStart: savedSettings.purchaseStart || savedSettings.startDate || "2026-08-31",
+      purchaseEnd: savedSettings.purchaseEnd || formatInputDate(addDays(parseDate(savedSettings.startDate || "2026-08-31"), 6)),
       selectedId: recipes[0]?.id || null,
       editingRecipeId: null,
       activeRegistration: null,
@@ -477,7 +515,10 @@
       sheetsStatus: document.querySelector("#sheetsStatus"),
       mealDetailModal: document.querySelector("#mealDetailModal"),
       mealDetailBody: document.querySelector("#mealDetailBody"),
-      calendarHeading: document.querySelector("#calendarHeading")
+      calendarHeading: document.querySelector("#calendarHeading"),
+      purchaseStart: document.querySelector("#purchaseStart"),
+      purchaseEnd: document.querySelector("#purchaseEnd"),
+      purchaseResults: document.querySelector("#purchaseResults")
     };
 
     function normalize(value) { return String(value || "").toLowerCase().replace(/\s+/g, ""); }
@@ -776,12 +817,15 @@
         const entry = state.plan[planKey(week, day, meal, slot)];
         const recipe = recipes.find(item => item.id === entry?.recipeId);
         return { slot, label, entry, recipe };
-      }).filter(item => item.slot === "free" ? item.entry?.customText : item.recipe);
+      }).filter(item => item.slot === "free" ? item.entry?.customText : item.slot === "rice" ? riceEntryLabel(item.entry) : item.recipe);
       state.activeMealDetail = { week, day, meal, items };
       document.querySelector("#mealDetailTitle").textContent = `${week}주차 ${day}요일 ${mealLabels[meal]} · ${formatDate(dateForCell(week, dayIndex))}`;
       els.mealDetailBody.innerHTML = items.map(item => {
         if (item.slot === "free") {
           return detailBlock(item.label, item.entry.customText);
+        }
+        if (item.slot === "rice") {
+          return detailBlock(item.label, riceEntryLabel(item.entry));
         }
         return `
           <section class="detail-block">
@@ -805,6 +849,9 @@
       const sections = detail.items.map(item => {
         if (item.slot === "free") {
           return `<section><h2>${escapeHtml(item.label)}</h2><pre>${escapeHtml(item.entry.customText)}</pre></section>`;
+        }
+        if (item.slot === "rice") {
+          return `<section><h2>${escapeHtml(item.label)}</h2><pre>${escapeHtml(riceEntryLabel(item.entry))}</pre></section>`;
         }
         return `
           <section>
@@ -903,7 +950,7 @@
       const selected = mealSlots[meal].map(([slot, label]) => {
         const entry = state.plan[planKey(week, day, meal, slot)];
         const recipe = recipes.find(item => item.id === entry?.recipeId);
-        const value = slot === "free" ? entry?.customText : recipe?.name;
+        const value = slot === "free" ? entry?.customText : slot === "rice" ? riceEntryLabel(entry) : recipe?.name;
         return { label, value };
       }).filter(item => item.value);
       const author = currentAuthor({ week, day, meal });
@@ -928,13 +975,13 @@
         return { slot, label, entry, recipe };
       });
       const author = currentAuthor({ week, day, meal });
-      const hasMenu = selected.some(item => item.slot === "free" ? item.entry?.customText : item.recipe);
+      const hasMenu = selected.some(item => item.slot === "free" ? item.entry?.customText : item.slot === "rice" ? riceEntryLabel(item.entry) : item.recipe);
       return `
         <div class="cal-cell meal-cell team-${teamKey} ${hasMenu ? "has-menu" : ""}" ${hasMenu ? `data-meal-detail data-week="${week}" data-day="${escapeAttr(day)}" data-meal="${meal}"` : ""}>
           <div class="cell-date">${escapeHtml(formatDate(cellDate))}</div>
           <div class="registered">
             ${selected.map(item => {
-              const value = item.slot === "free" ? item.entry?.customText : item.recipe?.name;
+              const value = item.slot === "free" ? item.entry?.customText : item.slot === "rice" ? riceEntryLabel(item.entry) : item.recipe?.name;
               return value ? `<div class="registered-line"><strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(value)}</span></div>` : "";
             }).join("") || '<div class="free-entry">등록된 메뉴 없음</div>'}
           </div>
@@ -951,11 +998,12 @@
       const slots = mealSlots[target.meal];
       const activeType = slotType[state.activeSlot];
       const isFreeSlot = state.activeSlot === "free";
+      const isRiceSlot = state.activeSlot === "rice";
       els.drawer.classList.add("open");
       els.drawer.innerHTML = `
         <div class="drawer-head">
           <div>
-            <h3>메뉴등록하기</h3>
+            <h3>메뉴등록</h3>
             <div class="badge-row">
               <span class="badge">${escapeHtml(currentCourse().label)}</span>
               <span class="badge">${escapeHtml(state.language)}</span>
@@ -994,7 +1042,7 @@
               ${slots.map(([slot, label]) => `<button type="button" class="${slot === state.activeSlot ? "active" : ""}" data-slot="${slot}">${escapeHtml(label)}</button>`).join("")}
             </div>
           </div>
-          ${isFreeSlot ? renderFreeEntry(target) : `
+          ${isFreeSlot ? renderFreeEntry(target) : isRiceSlot ? renderRiceEntry(target) : `
             <div>
               <div class="field" style="margin-bottom: 10px">
                 <label for="calendarSearch">메뉴 검색</label>
@@ -1044,6 +1092,27 @@
           renderCalendar();
           renderDrawer();
           renderStats();
+          renderPurchase();
+        });
+      }
+      const saveRice = els.drawer.querySelector("#saveRiceEntry");
+      if (saveRice) {
+        saveRice.addEventListener("click", () => {
+          state.registrationAuthor = els.drawer.querySelector("#authorName").value.trim();
+          const riceKg = els.drawer.querySelector("#riceKg").value.trim();
+          const grainName = els.drawer.querySelector("#grainName").value.trim();
+          const grainKg = els.drawer.querySelector("#grainKg").value.trim();
+          const key = planKey(target.week, target.day, target.meal, "rice");
+          if (riceKg || grainName || grainKg) {
+            state.plan[key] = { riceKg, grainName, grainKg, author: state.registrationAuthor };
+          } else {
+            delete state.plan[key];
+          }
+          saveJson(planStoreKey, state.plan);
+          renderCalendar();
+          renderDrawer();
+          renderStats();
+          renderPurchase();
         });
       }
       els.drawer.querySelector("#clearMeal").addEventListener("click", () => {
@@ -1052,6 +1121,7 @@
         renderCalendar();
         renderDrawer();
         renderStats();
+        renderPurchase();
       });
     }
     function drawerResultsHtml() {
@@ -1079,6 +1149,7 @@
         renderCalendar();
         renderDrawer();
         renderStats();
+        renderPurchase();
       }));
     }
     function renderFreeEntry(target) {
@@ -1086,10 +1157,34 @@
       return `
         <div class="registration-fields">
           <div class="field">
-            <label for="freeText">빈칸 자유입력</label>
-            <input id="freeText" placeholder="밥, 빵, 과일, 음료 등" value="${escapeAttr(entry?.customText || "")}">
+            <label for="freeText">그외메뉴 자유입력</label>
+            <input id="freeText" placeholder="빵, 과일, 음료 등" value="${escapeAttr(entry?.customText || "")}">
           </div>
-          <button type="button" class="btn primary" id="saveFreeEntry">빈칸 등록</button>
+          <button type="button" class="btn primary" id="saveFreeEntry">그외메뉴 등록</button>
+        </div>
+      `;
+    }
+    function renderRiceEntry(target) {
+      const entry = state.plan[planKey(target.week, target.day, target.meal, "rice")];
+      return `
+        <div class="registration-fields">
+          <div class="form-grid">
+            <div class="field">
+              <label for="riceKg">쌀 kg</label>
+              <input id="riceKg" type="number" min="0" step="0.1" placeholder="예: 5" value="${escapeAttr(entry?.riceKg || "")}">
+            </div>
+          </div>
+          <div class="form-grid">
+            <div class="field">
+              <label for="grainName">잡곡 이름</label>
+              <input id="grainName" placeholder="예: 현미, 보리" value="${escapeAttr(entry?.grainName || "")}">
+            </div>
+            <div class="field">
+              <label for="grainKg">잡곡 kg</label>
+              <input id="grainKg" type="number" min="0" step="0.1" placeholder="예: 1" value="${escapeAttr(entry?.grainKg || "")}">
+            </div>
+          </div>
+          <button type="button" class="btn primary" id="saveRiceEntry">밥 등록</button>
         </div>
       `;
     }
@@ -1105,6 +1200,13 @@
     }
     function currentAuthor(target) {
       return mealSlots[target.meal].map(([slot]) => state.plan[planKey(target.week, target.day, target.meal, slot)]?.author).find(Boolean) || "";
+    }
+    function riceEntryLabel(entry) {
+      if (!entry) return "";
+      const parts = [];
+      if (entry.riceKg) parts.push(`쌀 ${entry.riceKg}kg`);
+      if (entry.grainName || entry.grainKg) parts.push(`${entry.grainName || "잡곡"} ${entry.grainKg || 0}kg`);
+      return parts.join(" + ");
     }
     function teamForWeek(week) {
       const startsWithA = state.startTeam === "a";
@@ -1122,29 +1224,233 @@
       next.setDate(next.getDate() + amount);
       return next;
     }
+    function weekStartForDate(date) {
+      const mondayOffset = (date.getDay() + 6) % 7;
+      return addDays(date, -mondayOffset);
+    }
     function dateForCell(week, dayIndex) {
-      return addDays(parseDate(state.startDate), (week - 1) * 7 + dayIndex);
+      return addDays(weekStartForDate(parseDate(state.startDate)), (week - 1) * 7 + dayIndex);
     }
     function formatDate(date) {
       return `${date.getMonth() + 1}/${date.getDate()}`;
     }
+    function formatInputDate(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
     function renderCalendarHeading() {
+      const firstDate = dateForCell(1, 0);
       const endDate = dateForCell(currentCourse().weeks, days.length - 1);
       els.calendarHeading.innerHTML = `
         <h3>${escapeHtml(state.calendarTitle || currentCourse().label)}</h3>
-        <span>${escapeHtml(formatDate(parseDate(state.startDate)))} - ${escapeHtml(formatDate(endDate))} · ${escapeHtml(state.language)} · ${escapeHtml(state.startTeam === "a" ? "A팀 시작" : "B팀 시작")}</span>
+        <span>${escapeHtml(formatDate(firstDate))} - ${escapeHtml(formatDate(endDate))} · ${escapeHtml(state.language)} · ${escapeHtml(state.startTeam === "a" ? "A팀 시작" : "B팀 시작")}</span>
       `;
     }
     function saveSettings() {
       saveJson(calendarSettingsKey, {
         calendarTitle: state.calendarTitle,
         startDate: state.startDate,
-        startTeam: state.startTeam
+        startTeam: state.startTeam,
+        purchaseStart: state.purchaseStart,
+        purchaseEnd: state.purchaseEnd
       });
     }
     function planKey(week, day, meal, slot) { return `${state.course}|${state.language}|${week}|${day}|${meal}|${slot}`; }
     function renderStats() {
       renderDetail(recipes.find(recipe => recipe.id === state.selectedId));
+    }
+    function renderPurchase() {
+      if (!els.purchaseResults) return;
+      const report = buildPurchaseReport();
+      if (!report.mainItems.length && !report.sauceItems.length && !report.extraItems.length && !report.review.length) {
+        els.purchaseResults.innerHTML = `
+          <div class="summary">
+            <div class="stat"><span>등록 메뉴</span><strong>0</strong></div>
+            <div class="stat"><span>합산 재료</span><strong>0</strong></div>
+            <div class="stat"><span>확인 필요</span><strong>0</strong></div>
+            <div class="stat"><span>기간</span><strong>${escapeHtml(dateRangeLabel())}</strong></div>
+          </div>
+          <div class="empty">선택한 기간에 등록된 메뉴가 없습니다.</div>
+        `;
+        return;
+      }
+      els.purchaseResults.innerHTML = `
+        <div class="summary">
+          <div class="stat"><span>등록 메뉴</span><strong>${report.menuCount}</strong></div>
+          <div class="stat"><span>합산 재료</span><strong>${report.mainItems.length + report.sauceItems.length + report.extraItems.length}</strong></div>
+          <div class="stat"><span>확인 필요</span><strong>${report.review.length}</strong></div>
+          <div class="stat"><span>기간</span><strong>${escapeHtml(dateRangeLabel())}</strong></div>
+        </div>
+        ${purchaseTableHtml("주재료", report.mainItems)}
+        ${purchaseTableHtml("소스재료", report.sauceItems)}
+        ${purchaseTableHtml("그외재료", report.extraItems)}
+        ${report.review.length ? `
+          <section class="needs-review">
+            <h3 class="panel-title">확인 필요 재료</h3>
+            ${report.review.map(item => `
+              <div class="review-item">
+                <strong>${escapeHtml(item.line)}</strong>
+                <div class="source-list">${escapeHtml(item.sourcePrefix)} · ${escapeHtml(item.recipeName)} · ${escapeHtml(item.kind)}</div>
+              </div>
+            `).join("")}
+          </section>
+        ` : ""}
+      `;
+    }
+    function purchaseTableHtml(title, items) {
+      if (!items.length) return "";
+      return `
+        <section class="needs-review">
+          <h3 class="panel-title">${escapeHtml(title)}</h3>
+          <div class="purchase-table-wrap">
+            <table class="purchase-table">
+              <thead><tr><th>재료</th><th>총합</th><th>사용 날짜/메뉴</th></tr></thead>
+              <tbody>
+                ${items.map(item => `
+                  <tr>
+                    <td><strong>${escapeHtml(item.name)}</strong></td>
+                    <td>${escapeHtml(formatIngredientAmount(item))}</td>
+                    <td><div class="source-list">${escapeHtml([...item.sources].join(", "))}</div></td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      `;
+    }
+    function buildPurchaseReport() {
+      const start = parseDate(state.purchaseStart);
+      const end = parseDate(state.purchaseEnd);
+      end.setHours(23, 59, 59, 999);
+      const mainTotals = new Map();
+      const sauceTotals = new Map();
+      const extraTotals = new Map();
+      const review = [];
+      const menuKeys = new Set();
+      for (let week = 1; week <= currentCourse().weeks; week++) {
+        days.forEach((day, dayIndex) => {
+          const cellDate = dateForCell(week, dayIndex);
+          if (cellDate < start || cellDate > end) return;
+          Object.keys(mealLabels).forEach(meal => {
+            mealSlots[meal].forEach(([slot]) => {
+              const entry = state.plan[planKey(week, day, meal, slot)];
+              if (!entry) return;
+              const sourcePrefix = `${formatDate(cellDate)} ${day} ${mealLabels[meal]}`;
+              if (slot === "free") {
+                collectExtraIngredients(entry, sourcePrefix, extraTotals, review);
+                if (entry.customText) menuKeys.add(`${week}|${day}|${meal}|free`);
+                return;
+              }
+              if (slot === "rice") {
+                collectRiceIngredients(entry, sourcePrefix, mainTotals);
+                if (riceEntryLabel(entry)) menuKeys.add(`${week}|${day}|${meal}|rice`);
+                return;
+              }
+              const recipe = recipes.find(item => item.id === entry?.recipeId);
+              if (!recipe) return;
+              menuKeys.add(`${week}|${day}|${meal}|${slot}|${recipe.id}`);
+              collectRecipeIngredients(recipe, sourcePrefix, mainTotals, sauceTotals, review);
+            });
+          });
+        });
+      }
+      return {
+        menuCount: menuKeys.size,
+        mainItems: [...mainTotals.values()].sort((a, b) => a.name.localeCompare(b.name, "ko")),
+        sauceItems: [...sauceTotals.values()].sort((a, b) => a.name.localeCompare(b.name, "ko")),
+        extraItems: [...extraTotals.values()].sort((a, b) => a.name.localeCompare(b.name, "ko")),
+        review
+      };
+    }
+    function collectRecipeIngredients(recipe, sourcePrefix, mainTotals, sauceTotals, review) {
+      collectIngredientLines(recipe.mainIngredients, recipe, sourcePrefix, "주재료", mainTotals, review);
+      collectIngredientLines(recipe.sauceIngredients, recipe, sourcePrefix, "소스재료", sauceTotals, review);
+    }
+    function collectIngredientLines(text, recipe, sourcePrefix, kind, totals, review) {
+      String(text || "").split(/\n+/).map(line => line.trim()).filter(Boolean).forEach(line => {
+        const parsed = parseIngredientLine(line);
+        if (!parsed) {
+          review.push({ line, recipeName: recipe.name, sourcePrefix, kind });
+          return;
+        }
+        addParsedIngredient(totals, parsed, `${sourcePrefix} · ${recipe.name}`);
+      });
+    }
+    function addParsedIngredient(totals, parsed, sourceName) {
+      const key = `${normalize(parsed.name)}|${parsed.unit}`;
+      const current = totals.get(key) || { name: parsed.name, unit: parsed.unit, min: 0, max: 0, ranged: false, sources: new Set() };
+      current.min += parsed.min;
+      current.max += parsed.max;
+      current.ranged = current.ranged || parsed.ranged;
+      current.sources.add(sourceName);
+      totals.set(key, current);
+    }
+    function collectRiceIngredients(entry, sourcePrefix, totals) {
+      const sourceName = `${sourcePrefix} · 밥`;
+      addManualIngredient(totals, "쌀", Number(entry?.riceKg || 0), "kg", sourceName);
+      const grainName = String(entry?.grainName || "").trim();
+      addManualIngredient(totals, grainName, Number(entry?.grainKg || 0), "kg", sourceName);
+    }
+    function collectExtraIngredients(entry, sourcePrefix, totals, review) {
+      String(entry?.customText || "").split(/\n+/).map(line => line.trim()).filter(Boolean).forEach(line => {
+        const parsed = parseIngredientLine(line);
+        if (!parsed) {
+          review.push({ line, recipeName: "그외메뉴", sourcePrefix, kind: "그외재료" });
+          return;
+        }
+        addParsedIngredient(totals, parsed, `${sourcePrefix} · 그외메뉴`);
+      });
+    }
+    function addManualIngredient(totals, name, amount, unit, sourceName) {
+      if (!name || !amount) return;
+      const unitInfo = unit === "kg" ? { unit: "kg", factor: 1 } : normalizePurchaseUnit(unit);
+      const key = `${normalize(name)}|${unitInfo.unit}`;
+      const current = totals.get(key) || { name, unit: unitInfo.unit, min: 0, max: 0, ranged: false, sources: new Set() };
+      current.min += amount * unitInfo.factor;
+      current.max += amount * unitInfo.factor;
+      current.sources.add(sourceName);
+      totals.set(key, current);
+    }
+    function parseIngredientLine(line) {
+      const cleaned = String(line || "").replace(/^[\s\-*•·\d.)]+/, "").trim();
+      const match = cleaned.match(/^(.+?)\s+((?:\d+(?:\.\d+)?|\d+\/\d+)(?:\s*(?:~|-|–|—)\s*(?:\d+(?:\.\d+)?|\d+\/\d+))?)\s*(kg|g|ml|l|L|개|단|봉|팩|캔|병|통|큰술|작은술|T|t|컵|줄|장|알|마리|송이)$/i);
+      if (!match) return null;
+      const name = match[1].trim();
+      const range = match[2].split(/\s*(?:~|-|–|—)\s*/).map(parseIngredientNumber);
+      const unitInfo = normalizePurchaseUnit(match[3]);
+      if (!name || range.some(value => Number.isNaN(value))) return null;
+      const min = range[0] * unitInfo.factor;
+      const max = (range[1] ?? range[0]) * unitInfo.factor;
+      return { name, unit: unitInfo.unit, min, max, ranged: range.length > 1 };
+    }
+    function parseIngredientNumber(value) {
+      if (String(value).includes("/")) {
+        const [top, bottom] = String(value).split("/").map(Number);
+        return bottom ? top / bottom : Number.NaN;
+      }
+      return Number(value);
+    }
+    function normalizePurchaseUnit(unit) {
+      const raw = String(unit);
+      if (/^kg$/i.test(raw)) return { unit: "g", factor: 1000 };
+      if (/^l$/i.test(raw)) return { unit: "ml", factor: 1000 };
+      if (raw === "T") return { unit: "큰술", factor: 1 };
+      if (raw === "t") return { unit: "작은술", factor: 1 };
+      return { unit: raw, factor: 1 };
+    }
+    function formatIngredientAmount(item) {
+      const min = formatQuantity(item.min);
+      const max = formatQuantity(item.max);
+      return item.ranged && min !== max ? `${min}~${max}${item.unit}` : `${min}${item.unit}`;
+    }
+    function formatQuantity(value) {
+      return Number.isInteger(value) ? String(value) : String(Math.round(value * 100) / 100);
+    }
+    function dateRangeLabel() {
+      return `${formatDate(parseDate(state.purchaseStart))}-${formatDate(parseDate(state.purchaseEnd))}`;
     }
     function normalizeHeader(value) {
       return normalize(value).replace(/[()/_-]/g, "");
@@ -1161,6 +1467,8 @@
       els.calendarTitle.value = state.calendarTitle;
       els.startDate.value = state.startDate;
       els.startTeam.value = state.startTeam;
+      els.purchaseStart.value = state.purchaseStart;
+      els.purchaseEnd.value = state.purchaseEnd;
     }
     function setCourse(value) {
       state.course = value;
@@ -1170,7 +1478,7 @@
       renderAll();
     }
     function setLanguage(value) { state.language = value; state.activeRegistration = null; syncSelectors(); renderAll(); }
-    function renderAll() { renderMenu(); renderCalendar(); renderDrawer(); renderStats(); }
+    function renderAll() { renderMenu(); renderCalendar(); renderDrawer(); renderStats(); renderPurchase(); }
     function groupBy(items, getKey) {
       return items.reduce((groups, item) => {
         const key = getKey(item);
@@ -1213,7 +1521,7 @@
     function exportExcel() {
       const rows = [];
       rows.push([state.calendarTitle || currentCourse().label, currentCourse().label, state.language, state.startTeam === "a" ? "A팀 시작" : "B팀 시작"]);
-      rows.push(["주차", "팀", "날짜", "요일", "식사", "작성자", "메인", "사이드", "샐러드", "빈칸"]);
+      rows.push(["주차", "팀", "날짜", "요일", "식사", "작성자", "메인", "사이드", "샐러드", "밥", "그외메뉴"]);
       for (let week = 1; week <= currentCourse().weeks; week++) {
         const team = teamForWeek(week).label;
         ["lunch", "dinner"].forEach(meal => {
@@ -1229,6 +1537,7 @@
               calendarCellValue(week, day, meal, "main"),
               calendarCellValue(week, day, meal, "side"),
               calendarCellValue(week, day, meal, "salad"),
+              calendarCellValue(week, day, meal, "rice"),
               calendarCellValue(week, day, meal, "free")
             ]);
           });
@@ -1248,6 +1557,7 @@
       const entry = state.plan[planKey(week, day, meal, slot)];
       if (!entry) return "";
       if (slot === "free") return entry.customText || "";
+      if (slot === "rice") return riceEntryLabel(entry);
       return recipes.find(recipe => recipe.id === entry.recipeId)?.name || "";
     }
     function sanitizeFilename(value) {
@@ -1266,6 +1576,7 @@
       document.querySelectorAll("[data-view]").forEach(item => item.classList.toggle("active", item === button));
       document.querySelector("#menuView").classList.toggle("active", button.dataset.view === "menu");
       document.querySelector("#calendarView").classList.toggle("active", button.dataset.view === "calendar");
+      document.querySelector("#purchaseView").classList.toggle("active", button.dataset.view === "purchase");
     }));
     document.querySelectorAll("[data-category]").forEach(button => button.addEventListener("click", () => {
       state.menuCategory = button.dataset.category;
@@ -1284,12 +1595,38 @@
       state.startDate = event.target.value;
       saveSettings();
       renderCalendar();
+      renderPurchase();
     });
     els.startTeam.addEventListener("change", event => {
       state.startTeam = event.target.value;
       saveSettings();
       renderCalendar();
       renderDrawer();
+      renderPurchase();
+    });
+    els.purchaseStart.addEventListener("change", event => {
+      state.purchaseStart = event.target.value;
+      saveSettings();
+      renderPurchase();
+    });
+    els.purchaseEnd.addEventListener("change", event => {
+      state.purchaseEnd = event.target.value;
+      saveSettings();
+      renderPurchase();
+    });
+    document.querySelector("#purchaseThisWeek").addEventListener("click", () => {
+      state.purchaseStart = state.startDate;
+      state.purchaseEnd = formatInputDate(addDays(parseDate(state.startDate), 6));
+      syncSelectors();
+      saveSettings();
+      renderPurchase();
+    });
+    document.querySelector("#purchaseFullCourse").addEventListener("click", () => {
+      state.purchaseStart = state.startDate;
+      state.purchaseEnd = formatInputDate(dateForCell(currentCourse().weeks, days.length - 1));
+      syncSelectors();
+      saveSettings();
+      renderPurchase();
     });
     document.querySelector("#openCurrentWeek").addEventListener("click", () => {
       state.activeRegistration = { week: 1, day: "월", meal: "lunch" };
