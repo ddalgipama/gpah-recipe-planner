@@ -264,6 +264,15 @@
       .category-tabs, .summary, .form-grid, .calendar-tools, .calendar-settings, .purchase-tools { grid-template-columns: 1fr; }
       .purchase-tools { overflow: hidden; }
       .purchase-tools .field, .purchase-tools input, .purchase-tools .btn { min-width: 0; max-width: 100%; }
+      .purchase-tools input[type="date"] {
+        display: block;
+        width: calc(100vw - 72px);
+        max-width: 100%;
+        -webkit-appearance: none;
+        appearance: none;
+        font-size: 0.95rem;
+        text-align: left;
+      }
       .search-row { grid-template-columns: 1fr; }
       .calendar-wrap { display: none; }
       .mobile-calendar { display: block; }
