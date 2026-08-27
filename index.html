@@ -354,6 +354,10 @@
               <option value="b">B팀</option>
             </select>
           </div>
+          <div class="field">
+            <label for="servingCount">인원수</label>
+            <input id="servingCount" type="number" min="1" step="1" placeholder="예: 45">
+          </div>
         </div>
         <div class="drawer" id="registrationDrawer"></div>
         <div class="calendar-heading" id="calendarHeading"></div>
@@ -483,6 +487,7 @@
       calendarTitle: savedSettings.calendarTitle || "",
       startDate: savedSettings.startDate || "2026-08-31",
       startTeam: savedSettings.startTeam || "a",
+      servingCount: Number(savedSettings.servingCount || 40),
       menuCategory: "all",
       search: "",
       calendarSearch: "",
@@ -503,6 +508,7 @@
       calendarTitle: document.querySelector("#calendarTitle"),
       startDate: document.querySelector("#startDate"),
       startTeam: document.querySelector("#startTeam"),
+      servingCount: document.querySelector("#servingCount"),
       calendarSettings: document.querySelector("#calendarSettings"),
       search: document.querySelector("#search"),
       recipeGroups: document.querySelector("#recipeGroups"),
@@ -756,6 +762,7 @@
       state.calendarTitle = settings.calendarTitle || state.calendarTitle;
       state.startDate = settings.startDate || state.startDate;
       state.startTeam = settings.startTeam || state.startTeam;
+      state.servingCount = Number(settings.servingCount || state.servingCount || 40);
       state.purchaseStart = settings.purchaseStart || state.purchaseStart;
       state.purchaseEnd = settings.purchaseEnd || state.purchaseEnd;
       if (settings.course) state.course = settings.course;
@@ -1302,7 +1309,7 @@
       const endDate = dateForCell(currentCourse().weeks, days.length - 1);
       els.calendarHeading.innerHTML = `
         <h3>${escapeHtml(state.calendarTitle || currentCourse().label)}</h3>
-        <span>${escapeHtml(formatDate(firstDate))} - ${escapeHtml(formatDate(endDate))} · ${escapeHtml(state.language)} · ${escapeHtml(state.startTeam === "a" ? "A팀 시작" : "B팀 시작")}</span>
+        <span>${escapeHtml(formatDate(firstDate))} - ${escapeHtml(formatDate(endDate))} · ${escapeHtml(state.language)} · ${escapeHtml(state.startTeam === "a" ? "A팀 시작" : "B팀 시작")} · ${escapeHtml(state.servingCount)}명</span>
       `;
     }
     function saveSettings() {
@@ -1319,6 +1326,7 @@
         language: state.language,
         startDate: state.startDate,
         startTeam: state.startTeam,
+        servingCount: state.servingCount,
         purchaseStart: state.purchaseStart,
         purchaseEnd: state.purchaseEnd
       };
@@ -1340,7 +1348,7 @@
             <div class="stat"><span>등록 메뉴</span><strong>0</strong></div>
             <div class="stat"><span>합산 재료</span><strong>0</strong></div>
             <div class="stat"><span>확인 필요</span><strong>0</strong></div>
-            <div class="stat"><span>기간</span><strong>${escapeHtml(dateRangeLabel())}</strong></div>
+            <div class="stat"><span>기간/인원</span><strong>${escapeHtml(dateRangeLabel())} · ${escapeHtml(state.servingCount)}명</strong></div>
           </div>
           <div class="empty">선택한 기간에 등록된 메뉴가 없습니다.</div>
         `;
@@ -1351,7 +1359,7 @@
           <div class="stat"><span>등록 메뉴</span><strong>${report.menuCount}</strong></div>
           <div class="stat"><span>합산 재료</span><strong>${report.mainItems.length + report.sauceItems.length + report.extraItems.length}</strong></div>
           <div class="stat"><span>확인 필요</span><strong>${report.review.length}</strong></div>
-          <div class="stat"><span>기간</span><strong>${escapeHtml(dateRangeLabel())}</strong></div>
+          <div class="stat"><span>기간/인원</span><strong>${escapeHtml(dateRangeLabel())} · ${escapeHtml(state.servingCount)}명</strong></div>
         </div>
         ${purchaseTableHtml("주재료", report.mainItems)}
         ${purchaseTableHtml("소스재료", report.sauceItems)}
@@ -1446,8 +1454,14 @@
           review.push({ line, recipeName: recipe.name, sourcePrefix, kind });
           return;
         }
-        addParsedIngredient(totals, parsed, `${sourcePrefix} · ${recipe.name}`);
+        addParsedIngredient(totals, scaleParsedIngredient(parsed, servingScale()), `${sourcePrefix} · ${recipe.name}`);
       });
+    }
+    function servingScale() {
+      return Math.max(1, Number(state.servingCount || 40)) / 40;
+    }
+    function scaleParsedIngredient(parsed, scale) {
+      return { ...parsed, min: parsed.min * scale, max: parsed.max * scale };
     }
     function addParsedIngredient(totals, parsed, sourceName) {
       const key = `${normalize(parsed.name)}|${parsed.unit}`;
@@ -1539,6 +1553,7 @@
       els.calendarTitle.value = state.calendarTitle;
       els.startDate.value = state.startDate;
       els.startTeam.value = state.startTeam;
+      els.servingCount.value = state.servingCount;
       els.purchaseStart.value = state.purchaseStart;
       els.purchaseEnd.value = state.purchaseEnd;
     }
@@ -1609,7 +1624,7 @@
     }
     function exportExcel() {
       const rows = [];
-      rows.push([state.calendarTitle || currentCourse().label, currentCourse().label, state.language, state.startTeam === "a" ? "A팀 시작" : "B팀 시작"]);
+      rows.push([state.calendarTitle || currentCourse().label, currentCourse().label, state.language, state.startTeam === "a" ? "A팀 시작" : "B팀 시작", `${state.servingCount}명`]);
       rows.push(["주차", "팀", "날짜", "요일", "식사", "작성자", "메인", "사이드", "샐러드", "밥", "그외메뉴"]);
       for (let week = 1; week <= currentCourse().weeks; week++) {
         const team = teamForWeek(week).label;
@@ -1691,6 +1706,12 @@
       saveSharedCalendarSettings();
       renderCalendar();
       renderDrawer();
+      renderPurchase();
+    });
+    els.servingCount.addEventListener("change", event => {
+      state.servingCount = Math.max(1, Number(event.target.value || 40));
+      saveSharedCalendarSettings();
+      renderCalendarHeading();
       renderPurchase();
     });
     els.purchaseStart.addEventListener("change", event => {
