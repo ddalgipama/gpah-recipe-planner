@@ -467,6 +467,7 @@
     const calendarSettingsKey = "gpah-calendar-settings-v1";
     const sheetsSettingsKey = "gpah-sheets-settings-v1";
     const defaultSheetsUrl = "https://script.google.com/macros/s/AKfycbxrenm9I2W59G2vI_4dQKjbZLe8OjfKWmTgnj1517h6pC8IV98yRVPZMVTnLsPrhWz_/exec";
+    const calendarAdminPassword = "gpah2026";
     const savedSettings = loadJson(calendarSettingsKey, {});
     const sheetsSettings = loadJson(sheetsSettingsKey, {});
     const deletedRecipeIds = loadJson(deletedRecipeStoreKey, []);
@@ -1479,6 +1480,16 @@
     }
     function setLanguage(value) { state.language = value; state.activeRegistration = null; syncSelectors(); renderAll(); }
     function renderAll() { renderMenu(); renderCalendar(); renderDrawer(); renderStats(); renderPurchase(); }
+    function requestCalendarAdminAccess() {
+      if (sessionStorage.getItem("gpah-calendar-admin") === "ok") return true;
+      const password = window.prompt("캘린더 생성 설정은 관리자만 변경할 수 있습니다. 비밀번호를 입력해주세요.");
+      if (password === calendarAdminPassword) {
+        sessionStorage.setItem("gpah-calendar-admin", "ok");
+        return true;
+      }
+      if (password !== null) window.alert("비밀번호가 맞지 않습니다.");
+      return false;
+    }
     function groupBy(items, getKey) {
       return items.reduce((groups, item) => {
         const key = getKey(item);
@@ -1634,6 +1645,7 @@
       renderDrawer();
     });
     document.querySelector("#toggleCalendarSettings").addEventListener("click", () => {
+      if (!requestCalendarAdminAccess()) return;
       els.calendarSettings.classList.toggle("open");
     });
     document.querySelector("#exportExcel").addEventListener("click", exportExcel);
