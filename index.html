@@ -947,8 +947,8 @@
           <section class="detail-block">
             <strong>${escapeHtml(item.label)} · ${escapeHtml(item.recipe.name)}</strong>
             <pre>${escapeHtml([
-              `주재료\n${item.recipe.mainIngredients || "-"}`,
-              `소스재료\n${item.recipe.sauceIngredients || "-"}`,
+              `주재료 (${state.servingCount}명 기준)\n${scaledIngredientText(item.recipe.mainIngredients)}`,
+              `소스재료 (${state.servingCount}명 기준)\n${scaledIngredientText(item.recipe.sauceIngredients)}`,
               `레시피\n${item.recipe.recipe || "-"}`,
               `주의사항\n${item.recipe.notes || "-"}`
             ].join("\n\n"))}</pre>
@@ -972,8 +972,8 @@
         return `
           <section>
             <h2>${escapeHtml(item.label)} · ${escapeHtml(item.recipe.name)}</h2>
-            <h3>주재료</h3><pre>${escapeHtml(item.recipe.mainIngredients || "-")}</pre>
-            <h3>소스재료</h3><pre>${escapeHtml(item.recipe.sauceIngredients || "-")}</pre>
+            <h3>주재료 (${escapeHtml(state.servingCount)}명 기준)</h3><pre>${escapeHtml(scaledIngredientText(item.recipe.mainIngredients))}</pre>
+            <h3>소스재료 (${escapeHtml(state.servingCount)}명 기준)</h3><pre>${escapeHtml(scaledIngredientText(item.recipe.sauceIngredients))}</pre>
             <h3>레시피</h3><pre>${escapeHtml(item.recipe.recipe || "-")}</pre>
             <h3>주의사항</h3><pre>${escapeHtml(item.recipe.notes || "-")}</pre>
           </section>
@@ -1556,6 +1556,15 @@
         }
         addParsedIngredient(totals, parsed, `${sourcePrefix} · 그외메뉴`);
       });
+    }
+    function scaledIngredientText(text) {
+      const lines = String(text || "").split(/\n+/).map(line => line.trim()).filter(Boolean);
+      if (!lines.length) return "-";
+      return lines.map(line => {
+        const parsed = parseIngredientLine(line);
+        if (!parsed) return line;
+        return `${parsed.name} ${formatIngredientAmount(scaleParsedIngredient(parsed, servingScale()))}`;
+      }).join("\n");
     }
     function addManualIngredient(totals, name, amount, unit, sourceName) {
       if (!name || !amount) return;
