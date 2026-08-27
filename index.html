@@ -1562,9 +1562,24 @@
       if (!lines.length) return "-";
       return lines.map(line => {
         const parsed = parseIngredientLine(line);
-        if (!parsed) return line;
+        if (!parsed) return scaleIngredientLineInline(line);
         return `${parsed.name} ${formatIngredientAmount(scaleParsedIngredient(parsed, servingScale()))}`;
       }).join("\n");
+    }
+    function scaleIngredientLineInline(line) {
+      const scale = servingScale();
+      return String(line || "").replace(/((?:\d+(?:\.\d+)?|\d+\/\d+)(?:\s*(?:~|-|–|—)\s*(?:\d+(?:\.\d+)?|\d+\/\d+))?)\s*(kg|g|ml|l|L|개|단|봉|팩|캔|병|통|큰술|작은술|T|t|컵|줄|장|알|마리|송이)\b/gi, (match, amountText, unit) => {
+        const unitInfo = normalizePurchaseUnit(unit);
+        const range = String(amountText).split(/\s*(?:~|-|–|—)\s*/).map(parseIngredientNumber);
+        if (range.some(value => Number.isNaN(value))) return match;
+        const scaled = {
+          unit: unitInfo.unit,
+          min: range[0] * unitInfo.factor * scale,
+          max: (range[1] ?? range[0]) * unitInfo.factor * scale,
+          ranged: range.length > 1
+        };
+        return formatIngredientAmount(scaled);
+      });
     }
     function addManualIngredient(totals, name, amount, unit, sourceName) {
       if (!name || !amount) return;
