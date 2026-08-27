@@ -533,9 +533,13 @@
       return normalize([recipe.name, recipe.type, recipe.mainIngredients, recipe.sauceIngredients, recipe.recipe, recipe.chefTeam].join(" ")).includes(normalize(query));
     }
     function visibleRecipes(category = state.menuCategory, query = state.search) {
-      return recipes.filter(recipe => (category === "all" || recipe.type === category) && recipeMatchesQuery(recipe, query));
+      return recipes.filter(recipe => (category === "all" || recipeType(recipe) === category) && recipeMatchesQuery(recipe, query));
     }
-    function typeClass(type) { return type === "메인" ? "main" : type === "사이드" ? "side" : type === "샐러드" ? "salad" : ""; }
+    function recipeType(recipe) { return normalizeType(recipe?.type || ""); }
+    function typeClass(type) {
+      const normalized = normalizeType(type);
+      return normalized === "메인" ? "main" : normalized === "사이드" ? "side" : normalized === "샐러드" ? "salad" : "";
+    }
     function primaryIngredient(recipe) {
       const firstLine = String(recipe.mainIngredients || "").split(/\n|,/).map(item => item.trim()).find(Boolean);
       return firstLine ? firstLine.replace(/\s+\d.*$/, "") : "주재료 미입력";
@@ -1064,6 +1068,7 @@
       els.drawer.querySelector("#targetMeal").addEventListener("change", updateTargetFromDrawer);
       els.drawer.querySelectorAll("[data-slot]").forEach(button => button.addEventListener("click", () => {
         state.activeSlot = button.dataset.slot;
+        state.calendarSearch = "";
         renderDrawer();
       }));
       const drawerSearch = els.drawer.querySelector("#calendarSearch");
@@ -1127,7 +1132,7 @@
     }
     function drawerResultsHtml() {
       const activeType = slotType[state.activeSlot];
-      const results = recipes.filter(recipe => recipe.type === activeType && recipeMatchesQuery(recipe, state.calendarSearch));
+      const results = recipes.filter(recipe => recipeType(recipe) === activeType && recipeMatchesQuery(recipe, state.calendarSearch));
       return results.length ? results.map(recipe => `
         <div class="drawer-card">
           <div>
@@ -1457,10 +1462,12 @@
       return normalize(value).replace(/[()/_-]/g, "");
     }
     function normalizeType(value) {
-      if (String(value).includes("사이드")) return "사이드";
-      if (String(value).includes("샐러드")) return "샐러드";
-      if (String(value).includes("메인")) return "메인";
-      return value;
+      const text = String(value || "").trim();
+      const key = normalize(text);
+      if (key.includes("side") || key.includes("사이드")) return "사이드";
+      if (key.includes("salad") || key.includes("샐러드")) return "샐러드";
+      if (key.includes("main") || key.includes("메인")) return "메인";
+      return text;
     }
     function syncSelectors() {
       els.calendarCourseSelect.value = state.course;
@@ -1642,6 +1649,7 @@
     document.querySelector("#openCurrentWeek").addEventListener("click", () => {
       state.activeRegistration = { week: 1, day: "월", meal: "lunch" };
       state.activeSlot = "main";
+      state.calendarSearch = "";
       renderDrawer();
     });
     document.querySelector("#toggleCalendarSettings").addEventListener("click", () => {
