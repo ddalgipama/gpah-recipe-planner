@@ -45,10 +45,10 @@
     }
     h1 { margin: 0; font-size: clamp(1.65rem, 2.7vw, 2.45rem); line-height: 1.05; letter-spacing: 0; }
     .top-actions { display: flex; align-items: end; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
-    .field { display: grid; gap: 6px; }
+    .field { display: grid; gap: 6px; min-width: 0; }
     label { color: var(--muted); font-size: 0.78rem; font-weight: 800; }
     input, select, textarea {
-      width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 8px;
+      width: 100%; max-width: 100%; min-width: 0; min-height: 42px; border: 1px solid var(--line); border-radius: 8px;
       padding: 0 12px; color: var(--ink); background: #fff; outline: none;
     }
     textarea { min-height: 86px; padding-top: 10px; resize: vertical; }
@@ -262,6 +262,8 @@
       .tabs { width: 100%; }
       .tab { flex: 1; min-width: 0; }
       .category-tabs, .summary, .form-grid, .calendar-tools, .calendar-settings, .purchase-tools { grid-template-columns: 1fr; }
+      .purchase-tools { overflow: hidden; }
+      .purchase-tools .field, .purchase-tools input, .purchase-tools .btn { min-width: 0; max-width: 100%; }
       .search-row { grid-template-columns: 1fr; }
       .calendar-wrap { display: none; }
       .mobile-calendar { display: block; }
