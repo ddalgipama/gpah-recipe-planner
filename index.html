@@ -678,7 +678,7 @@
       Object.keys(state.plan).forEach(key => {
         if (state.plan[key]?.recipeId === recipeId) delete state.plan[key];
       });
-      saveJson(planStoreKey, state.plan);
+      savePlan();
       if (state.selectedId === recipeId) state.selectedId = recipes[0]?.id || null;
       renderAll();
     }
@@ -744,10 +744,29 @@
           return;
         }
         upsertLocalRecipes(imported);
-        els.sheetsStatus.textContent = `${imported.length}개 메뉴를 Google Sheets에서 불러왔습니다.`;
+        if (data.calendar) applyCalendarFromSheets(data.calendar);
+        els.sheetsStatus.textContent = `${imported.length}개 메뉴와 공유 캘린더를 Google Sheets에서 불러왔습니다.`;
       } catch (error) {
         els.sheetsStatus.textContent = `불러오지 못했습니다: ${error.message || "Apps Script URL과 배포 권한을 확인해주세요."}`;
       }
+    }
+    function applyCalendarFromSheets(calendar) {
+      if (!calendar) return;
+      const settings = calendar.settings || {};
+      state.calendarTitle = settings.calendarTitle || state.calendarTitle;
+      state.startDate = settings.startDate || state.startDate;
+      state.startTeam = settings.startTeam || state.startTeam;
+      state.purchaseStart = settings.purchaseStart || state.purchaseStart;
+      state.purchaseEnd = settings.purchaseEnd || state.purchaseEnd;
+      if (settings.course) state.course = settings.course;
+      if (settings.language) state.language = settings.language;
+      if (calendar.plan && typeof calendar.plan === "object") {
+        state.plan = calendar.plan;
+        saveJson(planStoreKey, state.plan);
+      }
+      saveSettings();
+      syncSelectors();
+      renderAll();
     }
     async function loadSheetsData() {
       const url = withQuery(state.sheetsUrl, { action: "list" });
@@ -806,6 +825,38 @@
         formEl.target = frameName;
         formEl.hidden = true;
         [["action", "upsert"], ["data", JSON.stringify(recipe)]].forEach(([name, value]) => {
+          const input = document.createElement("input");
+          input.name = name;
+          input.value = value;
+          formEl.appendChild(input);
+        });
+        document.body.append(frame, formEl);
+        formEl.submit();
+        setTimeout(() => { frame.remove(); formEl.remove(); }, 4000);
+      }
+    }
+    async function postCalendarToSheets() {
+      if (!state.sheetsUrl) return;
+      const payload = {
+        settings: calendarShareSettings(),
+        plan: state.plan
+      };
+      const form = new FormData();
+      form.append("action", "saveCalendar");
+      form.append("data", JSON.stringify(payload));
+      try {
+        await fetch(state.sheetsUrl, { method: "POST", mode: "no-cors", body: form });
+      } catch {
+        const formEl = document.createElement("form");
+        const frameName = `gpahCalendarFrame${Date.now()}`;
+        const frame = document.createElement("iframe");
+        frame.name = frameName;
+        frame.hidden = true;
+        formEl.method = "POST";
+        formEl.action = state.sheetsUrl;
+        formEl.target = frameName;
+        formEl.hidden = true;
+        [["action", "saveCalendar"], ["data", JSON.stringify(payload)]].forEach(([name, value]) => {
           const input = document.createElement("input");
           input.name = name;
           input.value = value;
@@ -1094,7 +1145,7 @@
           } else {
             delete state.plan[key];
           }
-          saveJson(planStoreKey, state.plan);
+          savePlan();
           renderCalendar();
           renderDrawer();
           renderStats();
@@ -1114,7 +1165,7 @@
           } else {
             delete state.plan[key];
           }
-          saveJson(planStoreKey, state.plan);
+          savePlan();
           renderCalendar();
           renderDrawer();
           renderStats();
@@ -1123,7 +1174,7 @@
       }
       els.drawer.querySelector("#clearMeal").addEventListener("click", () => {
         slots.forEach(([slot]) => delete state.plan[planKey(target.week, target.day, target.meal, slot)]);
-        saveJson(planStoreKey, state.plan);
+        savePlan();
         renderCalendar();
         renderDrawer();
         renderStats();
@@ -1151,7 +1202,7 @@
           recipeId: button.dataset.assignRecipe,
           author: state.registrationAuthor
         };
-        saveJson(planStoreKey, state.plan);
+        savePlan();
         renderCalendar();
         renderDrawer();
         renderStats();
@@ -1255,15 +1306,28 @@
       `;
     }
     function saveSettings() {
-      saveJson(calendarSettingsKey, {
+      saveJson(calendarSettingsKey, calendarShareSettings());
+    }
+    function saveSharedCalendarSettings() {
+      saveSettings();
+      postCalendarToSheets();
+    }
+    function calendarShareSettings() {
+      return {
         calendarTitle: state.calendarTitle,
+        course: state.course,
+        language: state.language,
         startDate: state.startDate,
         startTeam: state.startTeam,
         purchaseStart: state.purchaseStart,
         purchaseEnd: state.purchaseEnd
-      });
+      };
     }
     function planKey(week, day, meal, slot) { return `${state.course}|${state.language}|${week}|${day}|${meal}|${slot}`; }
+    function savePlan() {
+      saveJson(planStoreKey, state.plan);
+      postCalendarToSheets();
+    }
     function renderStats() {
       renderDetail(recipes.find(recipe => recipe.id === state.selectedId));
     }
@@ -1483,9 +1547,16 @@
       state.activeRegistration = null;
       state.mobileWeek = Math.min(state.mobileWeek || 1, currentCourse().weeks);
       syncSelectors();
+      saveSharedCalendarSettings();
       renderAll();
     }
-    function setLanguage(value) { state.language = value; state.activeRegistration = null; syncSelectors(); renderAll(); }
+    function setLanguage(value) {
+      state.language = value;
+      state.activeRegistration = null;
+      syncSelectors();
+      saveSharedCalendarSettings();
+      renderAll();
+    }
     function renderAll() { renderMenu(); renderCalendar(); renderDrawer(); renderStats(); renderPurchase(); }
     function requestCalendarAdminAccess() {
       if (sessionStorage.getItem("gpah-calendar-admin") === "ok") return true;
@@ -1606,44 +1677,44 @@
     els.calendarLanguageSelect.addEventListener("change", event => setLanguage(event.target.value));
     els.calendarTitle.addEventListener("input", event => {
       state.calendarTitle = event.target.value;
-      saveSettings();
+      saveSharedCalendarSettings();
       renderCalendarHeading();
     });
     els.startDate.addEventListener("change", event => {
       state.startDate = event.target.value;
-      saveSettings();
+      saveSharedCalendarSettings();
       renderCalendar();
       renderPurchase();
     });
     els.startTeam.addEventListener("change", event => {
       state.startTeam = event.target.value;
-      saveSettings();
+      saveSharedCalendarSettings();
       renderCalendar();
       renderDrawer();
       renderPurchase();
     });
     els.purchaseStart.addEventListener("change", event => {
       state.purchaseStart = event.target.value;
-      saveSettings();
+      saveSharedCalendarSettings();
       renderPurchase();
     });
     els.purchaseEnd.addEventListener("change", event => {
       state.purchaseEnd = event.target.value;
-      saveSettings();
+      saveSharedCalendarSettings();
       renderPurchase();
     });
     document.querySelector("#purchaseThisWeek").addEventListener("click", () => {
       state.purchaseStart = state.startDate;
       state.purchaseEnd = formatInputDate(addDays(parseDate(state.startDate), 6));
       syncSelectors();
-      saveSettings();
+      saveSharedCalendarSettings();
       renderPurchase();
     });
     document.querySelector("#purchaseFullCourse").addEventListener("click", () => {
       state.purchaseStart = state.startDate;
       state.purchaseEnd = formatInputDate(dateForCell(currentCourse().weeks, days.length - 1));
       syncSelectors();
-      saveSettings();
+      saveSharedCalendarSettings();
       renderPurchase();
     });
     document.querySelector("#openCurrentWeek").addEventListener("click", () => {
