@@ -1127,7 +1127,7 @@
     }
     function drawerResultsHtml() {
       const activeType = slotType[state.activeSlot];
-      const results = recipes.filter(recipe => recipeMatchesContext(recipe) && recipe.type === activeType && recipeMatchesQuery(recipe, state.calendarSearch));
+      const results = recipes.filter(recipe => recipe.type === activeType && recipeMatchesQuery(recipe, state.calendarSearch));
       return results.length ? results.map(recipe => `
         <div class="drawer-card">
           <div>
