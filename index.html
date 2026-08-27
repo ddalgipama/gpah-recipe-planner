@@ -215,10 +215,14 @@
     }
     .purchase-body { display: grid; gap: 16px; padding: 16px; }
     .purchase-table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
-    .purchase-table { width: 100%; border-collapse: collapse; min-width: 680px; }
+    .purchase-table { width: 100%; border-collapse: collapse; min-width: 840px; }
     .purchase-table th, .purchase-table td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
     .purchase-table th { color: var(--muted); background: #fbfcfb; font-size: 0.78rem; font-weight: 900; }
     .purchase-table tr:last-child td { border-bottom: 0; }
+    .purchase-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+    .purchase-section-total { color: var(--muted); font-weight: 900; font-size: 0.9rem; }
+    .buy-link { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; padding: 0 12px; border-radius: 8px; background: var(--ink); color: #fff; font-size: 0.78rem; font-weight: 900; text-decoration: none; white-space: nowrap; }
+    .buy-link.missing { background: #eef1ef; color: var(--muted); pointer-events: none; }
     .source-list { color: var(--muted); font-size: 0.78rem; line-height: 1.45; }
     .needs-review { display: grid; gap: 8px; }
     .review-item { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
@@ -500,6 +504,7 @@
       activeRegistration: null,
       activeMealDetail: null,
       activeSlot: "main",
+      prices: [],
       plan: loadJson(planStoreKey, {})
     };
     const els = {
@@ -712,6 +717,42 @@
         notes: value("주의사항", "주의점", "notes")
       };
     }
+    function normalizePriceRecord(record) {
+      const source = record || {};
+      const value = (...names) => {
+        const keys = Object.keys(source);
+        const wanted = names.map(normalizeHeader);
+        const key = keys.find(item => wanted.includes(normalizeHeader(item)));
+        return key ? String(source[key] || "").trim() : "";
+      };
+      const name = value("재료명", "재료", "ingredient", "name");
+      const unitInfo = normalizePriceUnit(value("단위", "unit"));
+      const baseAmount = parsePriceNumber(value("기준수량", "기준 수량", "수량", "amount", "base amount")) * unitInfo.factor;
+      const price = parsePriceNumber(value("가격", "금액", "price", "cost"));
+      if (!name || !unitInfo.unit || !baseAmount || !price) return null;
+      return {
+        name,
+        unit: unitInfo.unit,
+        baseAmount,
+        price,
+        link: value("구매링크", "구매 링크", "링크", "url", "link")
+      };
+    }
+    function parsePriceNumber(value) {
+      const cleaned = String(value || "").replace(/[^\d./-]/g, "");
+      if (cleaned.includes("/")) return parseIngredientNumber(cleaned);
+      return Number(cleaned || 0);
+    }
+    function normalizePriceUnit(unit) {
+      const raw = String(unit || "").trim();
+      if (/^kg$/i.test(raw)) return { unit: "g", factor: 1000 };
+      if (/^g$/i.test(raw)) return { unit: "g", factor: 1 };
+      if (/^l$/i.test(raw)) return { unit: "ml", factor: 1000 };
+      if (/^ml$/i.test(raw)) return { unit: "ml", factor: 1 };
+      if (raw === "T") return { unit: "큰술", factor: 1 };
+      if (raw === "t") return { unit: "작은술", factor: 1 };
+      return { unit: raw, factor: 1 };
+    }
     function upsertLocalRecipes(incoming) {
       incoming.forEach(recipe => {
         const recipeIndex = recipes.findIndex(item => item.id === recipe.id);
@@ -744,6 +785,7 @@
         const data = await loadSheetsData();
         if (data && data.ok === false) throw new Error(data.error || "Apps Script 오류");
         const rows = Array.isArray(data) ? data : data.recipes || data.rows || [];
+        if (data.prices) state.prices = data.prices.map(normalizePriceRecord).filter(Boolean);
         const imported = rows.map((row, index) => normalizeRecipeRecord(row, index)).filter(Boolean);
         if (!imported.length) {
           els.sheetsStatus.textContent = "불러올 메뉴를 찾지 못했습니다. 시트 헤더를 확인해주세요.";
@@ -751,7 +793,7 @@
         }
         upsertLocalRecipes(imported);
         if (data.calendar) applyCalendarFromSheets(data.calendar);
-        els.sheetsStatus.textContent = `${imported.length}개 메뉴와 공유 캘린더를 Google Sheets에서 불러왔습니다.`;
+        els.sheetsStatus.textContent = `${imported.length}개 메뉴, 공유 캘린더, 가격표를 Google Sheets에서 불러왔습니다.`;
       } catch (error) {
         els.sheetsStatus.textContent = `불러오지 못했습니다: ${error.message || "Apps Script URL과 배포 권한을 확인해주세요."}`;
       }
@@ -1358,12 +1400,13 @@
         <div class="summary">
           <div class="stat"><span>등록 메뉴</span><strong>${report.menuCount}</strong></div>
           <div class="stat"><span>합산 재료</span><strong>${report.mainItems.length + report.sauceItems.length + report.extraItems.length}</strong></div>
+          <div class="stat"><span>예상비용</span><strong>${escapeHtml(formatWon(report.totalCost))}</strong></div>
           <div class="stat"><span>확인 필요</span><strong>${report.review.length}</strong></div>
           <div class="stat"><span>기간/인원</span><strong>${escapeHtml(dateRangeLabel())} · ${escapeHtml(state.servingCount)}명</strong></div>
         </div>
-        ${purchaseTableHtml("주재료", report.mainItems)}
-        ${purchaseTableHtml("소스재료", report.sauceItems)}
-        ${purchaseTableHtml("그외재료", report.extraItems)}
+        ${purchaseTableHtml("주재료", report.mainItems, report.mainCost)}
+        ${purchaseTableHtml("소스재료", report.sauceItems, report.sauceCost)}
+        ${purchaseTableHtml("그외재료", report.extraItems, report.extraCost)}
         ${report.review.length ? `
           <section class="needs-review">
             <h3 class="panel-title">확인 필요 재료</h3>
@@ -1377,19 +1420,24 @@
         ` : ""}
       `;
     }
-    function purchaseTableHtml(title, items) {
+    function purchaseTableHtml(title, items, totalCost = 0) {
       if (!items.length) return "";
       return `
         <section class="needs-review">
-          <h3 class="panel-title">${escapeHtml(title)}</h3>
+          <div class="purchase-section-head">
+            <h3 class="panel-title">${escapeHtml(title)}</h3>
+            <div class="purchase-section-total">비용총합 ${escapeHtml(formatWon(totalCost))}</div>
+          </div>
           <div class="purchase-table-wrap">
             <table class="purchase-table">
-              <thead><tr><th>재료</th><th>총합</th><th>사용 날짜/메뉴</th></tr></thead>
+              <thead><tr><th>재료</th><th>총합</th><th>예상비용</th><th>구매</th><th>사용 날짜/메뉴</th></tr></thead>
               <tbody>
                 ${items.map(item => `
                   <tr>
                     <td><strong>${escapeHtml(item.name)}</strong></td>
                     <td>${escapeHtml(formatIngredientAmount(item))}</td>
+                    <td>${escapeHtml(formatIngredientCost(item))}</td>
+                    <td>${purchaseLinkHtml(item)}</td>
                     <td><div class="source-list">${escapeHtml([...item.sources].join(", "))}</div></td>
                   </tr>
                 `).join("")}
@@ -1435,11 +1483,21 @@
           });
         });
       }
+      const mainItems = withPriceInfo([...mainTotals.values()]).sort((a, b) => a.name.localeCompare(b.name, "ko"));
+      const sauceItems = withPriceInfo([...sauceTotals.values()]).sort((a, b) => a.name.localeCompare(b.name, "ko"));
+      const extraItems = withPriceInfo([...extraTotals.values()]).sort((a, b) => a.name.localeCompare(b.name, "ko"));
+      const mainCost = sumItemCosts(mainItems);
+      const sauceCost = sumItemCosts(sauceItems);
+      const extraCost = sumItemCosts(extraItems);
       return {
         menuCount: menuKeys.size,
-        mainItems: [...mainTotals.values()].sort((a, b) => a.name.localeCompare(b.name, "ko")),
-        sauceItems: [...sauceTotals.values()].sort((a, b) => a.name.localeCompare(b.name, "ko")),
-        extraItems: [...extraTotals.values()].sort((a, b) => a.name.localeCompare(b.name, "ko")),
+        mainItems,
+        sauceItems,
+        extraItems,
+        mainCost,
+        sauceCost,
+        extraCost,
+        totalCost: mainCost + sauceCost + extraCost,
         review
       };
     }
@@ -1525,13 +1583,89 @@
       if (raw === "t") return { unit: "작은술", factor: 1 };
       return { unit: raw, factor: 1 };
     }
+    function withPriceInfo(items) {
+      return items.map(item => {
+        const price = findPriceForItem(item);
+        if (!price) return { ...item, price: null, minCost: null, maxCost: null };
+        const minAmount = amountForPriceUnit(item.min, item.unit, price.unit);
+        const maxAmount = amountForPriceUnit(item.max, item.unit, price.unit);
+        if (minAmount === null || maxAmount === null || !price.baseAmount) {
+          return { ...item, price, minCost: null, maxCost: null };
+        }
+        return {
+          ...item,
+          price,
+          minCost: (minAmount / price.baseAmount) * price.price,
+          maxCost: (maxAmount / price.baseAmount) * price.price
+        };
+      });
+    }
+    function findPriceForItem(item) {
+      const itemName = normalize(item.name);
+      const exact = state.prices.find(price => normalize(price.name) === itemName && compatibleUnits(item.unit, price.unit));
+      if (exact) return exact;
+      return state.prices.find(price => {
+        const priceName = normalize(price.name);
+        return compatibleUnits(item.unit, price.unit) && (itemName.includes(priceName) || priceName.includes(itemName));
+      }) || null;
+    }
+    function compatibleUnits(itemUnit, priceUnit) {
+      if (itemUnit === priceUnit) return true;
+      if ((itemUnit === "kg" && priceUnit === "g") || (itemUnit === "g" && priceUnit === "kg")) return true;
+      if ((itemUnit === "L" && priceUnit === "ml") || (itemUnit === "ml" && priceUnit === "L")) return true;
+      return false;
+    }
+    function amountForPriceUnit(amount, itemUnit, priceUnit) {
+      if (itemUnit === priceUnit) return amount;
+      if (itemUnit === "kg" && priceUnit === "g") return amount * 1000;
+      if (itemUnit === "g" && priceUnit === "kg") return amount / 1000;
+      if (itemUnit === "L" && priceUnit === "ml") return amount * 1000;
+      if (itemUnit === "ml" && priceUnit === "L") return amount / 1000;
+      return null;
+    }
+    function sumItemCosts(items) {
+      return items.reduce((sum, item) => sum + (Number.isFinite(item.maxCost) ? item.maxCost : 0), 0);
+    }
+    function formatIngredientCost(item) {
+      if (!Number.isFinite(item?.maxCost)) return "-";
+      const min = formatWon(item.minCost);
+      const max = formatWon(item.maxCost);
+      return item.ranged && min !== max ? `${min}~${max}` : max;
+    }
+    function purchaseLinkHtml(item) {
+      const link = item?.price?.link || "";
+      if (!link) return '<span class="buy-link missing">-</span>';
+      return `<a class="buy-link" href="${escapeAttr(link)}" target="_blank" rel="noopener noreferrer">구매</a>`;
+    }
+    function formatWon(value) {
+      if (!Number.isFinite(value) || value <= 0) return "-";
+      return `${Math.round(value).toLocaleString("ko-KR")}원`;
+    }
     function formatIngredientAmount(item) {
-      const min = formatQuantity(item.min);
-      const max = formatQuantity(item.max);
-      return item.ranged && min !== max ? `${min}~${max}${item.unit}` : `${min}${item.unit}`;
+      const displayUnit = displayPurchaseUnit(item.unit, item.max);
+      const min = formatDisplayQuantity(item.min, item.unit, displayUnit);
+      const max = formatDisplayQuantity(item.max, item.unit, displayUnit);
+      return item.ranged && min !== max ? `${min}~${max}${displayUnit}` : `${min}${displayUnit}`;
     }
     function formatQuantity(value) {
       return Number.isInteger(value) ? String(value) : String(Math.round(value * 100) / 100);
+    }
+    function displayPurchaseUnit(unit, maxValue) {
+      if (unit === "g" && Math.round(maxValue) >= 1000) return "kg";
+      if (unit === "ml" && Math.round(maxValue) >= 1000) return "L";
+      return unit;
+    }
+    function formatDisplayQuantity(value, sourceUnit, displayUnit) {
+      let normalized = value;
+      if (sourceUnit === "g" && displayUnit === "kg") normalized = value / 1000;
+      if (sourceUnit === "ml" && displayUnit === "L") normalized = value / 1000;
+      if (displayUnit === "g" || displayUnit === "ml") return String(Math.round(normalized));
+      if (displayUnit === "kg" || displayUnit === "L") return formatOneDecimal(normalized);
+      return formatQuantity(normalized);
+    }
+    function formatOneDecimal(value) {
+      const rounded = Math.round(value * 10) / 10;
+      return Number.isInteger(rounded) ? String(rounded) : String(rounded);
     }
     function dateRangeLabel() {
       return `${formatDate(parseDate(state.purchaseStart))}-${formatDate(parseDate(state.purchaseEnd))}`;
