@@ -237,6 +237,9 @@
     .drawer-head h3 { margin: 0; font-size: 1.05rem; }
     .drawer-grid { display: grid; grid-template-columns: 260px 1fr; gap: 12px; align-items: start; }
     .registration-fields { display: grid; gap: 10px; }
+    .free-items { display: grid; gap: 8px; }
+    .free-item-row { display: grid; grid-template-columns: 1fr 38px; gap: 8px; align-items: end; }
+    .free-item-row .mini-btn { min-height: 42px; }
     .target-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
     .slot-tabs { display: grid; gap: 8px; margin-top: 10px; }
     .drawer-results { display: grid; gap: 8px; max-height: 310px; overflow: auto; }
@@ -480,8 +483,8 @@
     const days = ["월", "화", "수", "목", "금"];
     const mealLabels = { lunch: "점심", dinner: "저녁" };
     const mealSlots = {
-      lunch: [["main", "메인"], ["side", "사이드"], ["salad", "샐러드"], ["rice", "밥"], ["free", "그외메뉴"]],
-      dinner: [["main", "메인"], ["side", "사이드"], ["salad", "샐러드"], ["rice", "밥"], ["free", "그외메뉴"]]
+      lunch: [["main", "메인"], ["side", "사이드"], ["salad", "샐러드 / 채소"], ["rice", "밥"], ["free", "그외메뉴"]],
+      dinner: [["main", "메인"], ["side", "사이드"], ["rice", "밥"], ["free", "그외메뉴"]]
     };
     const slotType = { main: "메인", side: "사이드", salad: "샐러드", rice: "밥", free: "그외메뉴" };
     const recipeStoreKey = "gpah-recipes-v2";
@@ -949,12 +952,12 @@
         const entry = state.plan[planKey(week, day, meal, slot)];
         const recipe = recipes.find(item => item.id === entry?.recipeId);
         return { slot, label, entry, recipe };
-      }).filter(item => item.slot === "free" ? item.entry?.customText : item.slot === "rice" ? riceEntryLabel(item.entry) : item.recipe);
+      }).filter(item => item.slot === "free" ? freeEntryText(item.entry) : item.slot === "rice" ? riceEntryLabel(item.entry) : item.recipe);
       state.activeMealDetail = { week, day, meal, items };
       document.querySelector("#mealDetailTitle").textContent = `${week}주차 ${day}요일 ${mealLabels[meal]} · ${formatDate(dateForCell(week, dayIndex))}`;
       els.mealDetailBody.innerHTML = items.map(item => {
         if (item.slot === "free") {
-          return detailBlock(item.label, item.entry.customText);
+          return detailBlock(item.label, freeEntryText(item.entry));
         }
         if (item.slot === "rice") {
           return detailBlock(item.label, riceEntryLabel(item.entry));
@@ -981,7 +984,7 @@
       const title = `${state.calendarTitle || currentCourse().label} ${detail.week}주차 ${detail.day}요일 ${mealLabels[detail.meal]}`;
       const sections = detail.items.map(item => {
         if (item.slot === "free") {
-          return `<section><h2>${escapeHtml(item.label)}</h2><pre>${escapeHtml(item.entry.customText)}</pre></section>`;
+          return `<section><h2>${escapeHtml(item.label)}</h2><pre>${escapeHtml(freeEntryText(item.entry))}</pre></section>`;
         }
         if (item.slot === "rice") {
           return `<section><h2>${escapeHtml(item.label)}</h2><pre>${escapeHtml(riceEntryLabel(item.entry))}</pre></section>`;
@@ -1085,7 +1088,7 @@
       const selected = mealSlots[meal].map(([slot, label]) => {
         const entry = state.plan[planKey(week, day, meal, slot)];
         const recipe = recipes.find(item => item.id === entry?.recipeId);
-        const value = slot === "free" ? entry?.customText : slot === "rice" ? riceEntryLabel(entry) : recipe?.name;
+        const value = slot === "free" ? freeEntryText(entry) : slot === "rice" ? riceEntryLabel(entry) : recipe?.name;
         return { label, value };
       }).filter(item => item.value);
       const author = currentAuthor({ week, day, meal });
@@ -1110,13 +1113,13 @@
         return { slot, label, entry, recipe };
       });
       const author = currentAuthor({ week, day, meal });
-      const hasMenu = selected.some(item => item.slot === "free" ? item.entry?.customText : item.slot === "rice" ? riceEntryLabel(item.entry) : item.recipe);
+      const hasMenu = selected.some(item => item.slot === "free" ? freeEntryText(item.entry) : item.slot === "rice" ? riceEntryLabel(item.entry) : item.recipe);
       return `
         <div class="cal-cell meal-cell team-${teamKey} ${hasMenu ? "has-menu" : ""}" ${hasMenu ? `data-meal-detail data-week="${week}" data-day="${escapeAttr(day)}" data-meal="${meal}"` : ""}>
           <div class="cell-date">${escapeHtml(formatDate(cellDate))}</div>
           <div class="registered">
             ${selected.map(item => {
-              const value = item.slot === "free" ? item.entry?.customText : item.slot === "rice" ? riceEntryLabel(item.entry) : item.recipe?.name;
+              const value = item.slot === "free" ? freeEntryText(item.entry) : item.slot === "rice" ? riceEntryLabel(item.entry) : item.recipe?.name;
               return value ? `<div class="registered-line"><strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(value)}</span></div>` : "";
             }).join("") || '<div class="free-entry">등록된 메뉴 없음</div>'}
           </div>
@@ -1217,10 +1220,11 @@
       if (saveFree) {
         saveFree.addEventListener("click", () => {
           state.registrationAuthor = els.drawer.querySelector("#authorName").value.trim();
-          const value = els.drawer.querySelector("#freeText").value.trim();
+          const items = [...els.drawer.querySelectorAll(".free-text")].map(input => input.value.trim()).filter(Boolean);
+          const value = items.join("\n");
           const key = planKey(target.week, target.day, target.meal, "free");
           if (value) {
-            state.plan[key] = { customText: value, author: state.registrationAuthor };
+            state.plan[key] = { customText: value, customItems: items, author: state.registrationAuthor };
           } else {
             delete state.plan[key];
           }
@@ -1231,6 +1235,32 @@
           renderPurchase();
         });
       }
+      const addFree = els.drawer.querySelector("#addFreeEntry");
+      if (addFree) {
+        addFree.addEventListener("click", () => {
+          persistFreeDraft(target);
+          const key = planKey(target.week, target.day, target.meal, "free");
+          const entry = state.plan[key] || { customItems: [], author: state.registrationAuthor };
+          const items = freeEntryItems(entry);
+          while (items.length < 2) items.push("");
+          items.push("");
+          state.plan[key] = { ...entry, customItems: items, customText: items.filter(Boolean).join("\n"), author: state.registrationAuthor };
+          renderDrawer();
+        });
+      }
+      els.drawer.querySelectorAll("[data-remove-free]").forEach(button => {
+        button.addEventListener("click", () => {
+          persistFreeDraft(target);
+          const key = planKey(target.week, target.day, target.meal, "free");
+          const entry = state.plan[key] || {};
+          const removeIndex = Number(button.dataset.removeFree);
+          const items = freeEntryItems(entry);
+          items.splice(removeIndex, 1);
+          while (items.length < 2) items.push("");
+          state.plan[key] = { ...entry, customItems: items, customText: items.filter(Boolean).join("\n"), author: state.registrationAuthor };
+          renderDrawer();
+        });
+      });
       const saveRice = els.drawer.querySelector("#saveRiceEntry");
       if (saveRice) {
         saveRice.addEventListener("click", () => {
@@ -1288,14 +1318,49 @@
         renderPurchase();
       }));
     }
+    function persistFreeDraft(target) {
+      if (!target) return;
+      const fields = els.drawer.querySelectorAll(".free-text");
+      if (!fields.length) return;
+      state.registrationAuthor = els.drawer.querySelector("#authorName")?.value.trim() || state.registrationAuthor;
+      const items = [...fields].map(input => input.value.trim());
+      const key = planKey(target.week, target.day, target.meal, "free");
+      state.plan[key] = {
+        ...(state.plan[key] || {}),
+        customItems: items,
+        customText: items.filter(Boolean).join("\n"),
+        author: state.registrationAuthor
+      };
+    }
+    function freeEntryItems(entry) {
+      if (Array.isArray(entry?.customItems)) {
+        const items = entry.customItems.map(item => String(item || "").trim());
+        return items.length ? items : ["", ""];
+      }
+      const cleaned = String(entry?.customText || "").split(/\n+/).map(item => item.trim()).filter(Boolean);
+      return cleaned.length ? cleaned : ["", ""];
+    }
+    function freeEntryText(entry) {
+      return freeEntryItems(entry).filter(Boolean).join("\n");
+    }
     function renderFreeEntry(target) {
       const entry = state.plan[planKey(target.week, target.day, target.meal, "free")];
+      const items = freeEntryItems(entry);
+      while (items.length < 2) items.push("");
       return `
         <div class="registration-fields">
           <div class="field">
-            <label for="freeText">그외메뉴 자유입력</label>
-            <input id="freeText" placeholder="빵, 과일, 음료 등" value="${escapeAttr(entry?.customText || "")}">
+            <label>그외메뉴 자유입력(김치, 피클, 과일 등)/ 각 빈칸에 하나의 재료와 수량만 넣어주세요.</label>
+            <div class="free-items" id="freeItems">
+              ${items.map((item, index) => `
+                <div class="free-item-row">
+                  <input class="free-text" placeholder="${index === 0 ? "예시) 김치 1kg" : index === 1 ? "예시) 포도 3송이" : "예시) 피클 1kg"}" value="${escapeAttr(item)}">
+                  <button type="button" class="mini-btn danger" data-remove-free="${index}" aria-label="그외메뉴 빈칸 삭제">삭제</button>
+                </div>
+              `).join("")}
+            </div>
           </div>
+          <button type="button" class="btn" id="addFreeEntry">+ 그외메뉴 추가</button>
           <button type="button" class="btn primary" id="saveFreeEntry">그외메뉴 등록</button>
         </div>
       `;
@@ -1325,6 +1390,7 @@
       `;
     }
     function updateTargetFromDrawer() {
+      if (state.activeSlot === "free") persistFreeDraft(state.activeRegistration);
       state.registrationAuthor = els.drawer.querySelector("#authorName").value;
       state.activeRegistration = {
         week: Number(els.drawer.querySelector("#targetWeek").value),
@@ -1497,7 +1563,9 @@
               const sourcePrefix = `${formatDate(cellDate)} ${day} ${mealLabels[meal]}`;
               if (slot === "free") {
                 collectExtraIngredients(entry, sourcePrefix, extraTotals, review);
-                if (entry.customText) menuKeys.add(`${week}|${day}|${meal}|free`);
+                freeEntryItems(entry).filter(Boolean).forEach((line, index) => {
+                  menuKeys.add(`${week}|${day}|${meal}|free|${index}|${line}`);
+                });
                 return;
               }
               if (slot === "rice") {
@@ -1567,13 +1635,13 @@
       addManualIngredient(totals, grainName, Number(entry?.grainKg || 0), "kg", sourceName);
     }
     function collectExtraIngredients(entry, sourcePrefix, totals, review) {
-      String(entry?.customText || "").split(/\n+/).map(line => line.trim()).filter(Boolean).forEach(line => {
+      freeEntryItems(entry).map(line => line.trim()).filter(Boolean).forEach(line => {
         const parsed = parseIngredientLine(line);
         if (!parsed) {
           review.push({ line, recipeName: "그외메뉴", sourcePrefix, kind: "그외재료" });
           return;
         }
-        addParsedIngredient(totals, parsed, `${sourcePrefix} · 그외메뉴`);
+        addParsedIngredient(totals, parsed, `${sourcePrefix} · ${parsed.name}`);
       });
     }
     function scaledIngredientText(text) {
@@ -1796,7 +1864,7 @@
               meal: mealLabels[meal],
               slot: slotType[slot],
               author: entry.author || "",
-              menu: slot === "free" ? entry.customText || "" : recipe?.name || "",
+              menu: slot === "free" ? freeEntryText(entry) : recipe?.name || "",
               time: recipe?.time || "",
               mainIngredients: recipe?.mainIngredients || ""
             };
@@ -1848,7 +1916,7 @@
     function calendarCellValue(week, day, meal, slot) {
       const entry = state.plan[planKey(week, day, meal, slot)];
       if (!entry) return "";
-      if (slot === "free") return entry.customText || "";
+      if (slot === "free") return freeEntryText(entry);
       if (slot === "rice") return riceEntryLabel(entry);
       return recipes.find(recipe => recipe.id === entry.recipeId)?.name || "";
     }
