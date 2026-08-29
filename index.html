@@ -125,6 +125,10 @@
     .badge.salad { color: var(--salad); background: rgba(94,127,63,0.13); }
     .detail { padding: 16px; display: grid; gap: 13px; }
     .detail h3 { margin: 0; font-size: 1.28rem; line-height: 1.22; }
+    .recipe-photo {
+      width: 100%; max-height: 360px; object-fit: cover; display: block;
+      border: 1px solid var(--line); border-radius: 8px; background: var(--wash);
+    }
     .detail-block { border: 1px solid var(--line); border-radius: 8px; padding: 13px; background: #fff; }
     .detail-block strong { display: block; margin-bottom: 7px; color: var(--muted); font-size: 0.78rem; }
     .detail-block pre { margin: 0; white-space: pre-wrap; word-break: keep-all; line-height: 1.55; font-family: inherit; font-size: 0.92rem; }
@@ -309,7 +313,7 @@
           <div class="search-area">
             <div class="search-row">
               <div class="field">
-                <label for="search">메뉴 이름·재료 검색</label>
+                <label for="search">메뉴 이름·재료 검색 · 40인분 기준</label>
                 <input id="search" type="search" placeholder="예: 닭다리살, 간장조림">
               </div>
               <button type="button" class="btn icon" id="openNewRecipe" title="신규메뉴등록" aria-label="신규메뉴등록">+</button>
@@ -643,11 +647,22 @@
           <span class="badge">소요시간 ${escapeHtml(recipe.time || "미정")}</span>
           <span class="badge">${escapeHtml(recipe.language)}</span>
         </div>
+        ${recipeImageHtml(recipe)}
         ${detailBlock("주재료", recipe.mainIngredients)}
         ${detailBlock("소스재료", recipe.sauceIngredients)}
         ${detailBlock("레시피", recipe.recipe)}
         ${recipe.notes ? detailBlock("주의점", recipe.notes) : ""}
         ${menuStatsHtml()}`;
+    }
+    function recipeImageHtml(recipe) {
+      const url = String(recipe?.imageUrl || "").trim();
+      if (!url) return "";
+      return `<img class="recipe-photo" src="${escapeAttr(url)}" alt="${escapeAttr(recipe.name)} 사진" loading="lazy">`;
+    }
+    function recipePrintImageHtml(recipe) {
+      const url = String(recipe?.imageUrl || "").trim();
+      if (!url) return "";
+      return `<img src="${escapeAttr(url)}" alt="${escapeAttr(recipe.name)} 사진">`;
     }
     function detailBlock(title, body) { return `<section class="detail-block"><strong>${escapeHtml(title)}</strong><pre>${escapeHtml(body || "-")}</pre></section>`; }
     function menuStatsHtml() {
@@ -725,7 +740,8 @@
         mainIngredients: value("주재료", "재료", "main ingredients"),
         sauceIngredients: value("소스재료", "소스", "sauce ingredients"),
         recipe: value("레시피", "recipe"),
-        notes: value("주의사항", "주의점", "notes")
+        notes: value("주의사항", "주의점", "notes"),
+        imageUrl: value("사진URL", "사진 URL", "이미지URL", "이미지 URL", "사진", "imageUrl", "image url", "photo", "photoUrl")
       };
     }
     function normalizePriceRecord(record) {
@@ -946,6 +962,7 @@
         return `
           <section class="detail-block">
             <strong>${escapeHtml(item.label)} · ${escapeHtml(item.recipe.name)}</strong>
+            ${recipeImageHtml(item.recipe)}
             <pre>${escapeHtml([
               `주재료 (${state.servingCount}명 기준)\n${scaledIngredientText(item.recipe.mainIngredients)}`,
               `소스재료 (${state.servingCount}명 기준)\n${scaledIngredientText(item.recipe.sauceIngredients)}`,
@@ -972,6 +989,7 @@
         return `
           <section>
             <h2>${escapeHtml(item.label)} · ${escapeHtml(item.recipe.name)}</h2>
+            ${recipePrintImageHtml(item.recipe)}
             <h3>주재료 (${escapeHtml(state.servingCount)}명 기준)</h3><pre>${escapeHtml(scaledIngredientText(item.recipe.mainIngredients))}</pre>
             <h3>소스재료 (${escapeHtml(state.servingCount)}명 기준)</h3><pre>${escapeHtml(scaledIngredientText(item.recipe.sauceIngredients))}</pre>
             <h3>레시피</h3><pre>${escapeHtml(item.recipe.recipe || "-")}</pre>
@@ -991,6 +1009,7 @@
     section { page-break-inside: avoid; border-top: 1px solid #dbe2dd; padding-top: 16px; margin-top: 18px; }
     h2 { font-size: 18px; margin: 0 0 12px; }
     h3 { font-size: 13px; color: #66736f; margin: 16px 0 6px; }
+    img { max-width: 100%; max-height: 280px; object-fit: cover; border: 1px solid #dbe2dd; border-radius: 8px; margin: 0 0 12px; }
     pre { white-space: pre-wrap; font-family: inherit; margin: 0; }
     @media print { body { margin: 18mm; } }
   </style>
