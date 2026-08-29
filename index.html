@@ -1655,7 +1655,7 @@
     }
     function scaleIngredientLineInline(line) {
       const scale = servingScale();
-      return String(line || "").replace(/((?:\d+(?:\.\d+)?|\d+\/\d+)(?:\s*(?:~|-|–|—)\s*(?:\d+(?:\.\d+)?|\d+\/\d+))?)\s*(kg|g|ml|l|L|개|단|봉|팩|캔|병|통|큰술|작은술|T|t|컵|줄|장|알|마리|송이)\b/gi, (match, amountText, unit) => {
+      return String(line || "").replace(/((?:\d+(?:\.\d+)?|\d+\/\d+)(?:\s*(?:~|-|–|—)\s*(?:\d+(?:\.\d+)?|\d+\/\d+))?)\s*(kg|g|ml|l|L|개|단|봉|팩|캔|병|통|큰술|작은술|T|t|컵|줄|장|알|마리|송이)(?![가-힣a-z])/gi, (match, amountText, unit) => {
         const unitInfo = normalizePurchaseUnit(unit);
         const range = String(amountText).split(/\s*(?:~|-|–|—)\s*/).map(parseIngredientNumber);
         if (range.some(value => Number.isNaN(value))) return match;
@@ -1680,7 +1680,7 @@
     }
     function parseIngredientLine(line) {
       const cleaned = String(line || "").replace(/^[\s\-*•·\d.)]+/, "").trim();
-      const match = cleaned.match(/^(.+?)\s+((?:\d+(?:\.\d+)?|\d+\/\d+)(?:\s*(?:~|-|–|—)\s*(?:\d+(?:\.\d+)?|\d+\/\d+))?)\s*(kg|g|ml|l|L|개|단|봉|팩|캔|병|통|큰술|작은술|T|t|컵|줄|장|알|마리|송이)$/i);
+      const match = cleaned.match(/^(.+?)\s*((?:\d+(?:\.\d+)?|\d+\/\d+)(?:\s*(?:~|-|–|—)\s*(?:\d+(?:\.\d+)?|\d+\/\d+))?)\s*(kg|g|ml|l|L|개|단|봉|팩|캔|병|통|큰술|작은술|T|t|컵|줄|장|알|마리|송이)$/i);
       if (!match) return null;
       const name = match[1].trim();
       const range = match[2].split(/\s*(?:~|-|–|—)\s*/).map(parseIngredientNumber);
