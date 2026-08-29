@@ -1635,7 +1635,7 @@
       addManualIngredient(totals, grainName, Number(entry?.grainKg || 0), "kg", sourceName);
     }
     function collectExtraIngredients(entry, sourcePrefix, totals, review) {
-      freeEntryItems(entry).map(line => line.trim()).filter(Boolean).forEach(line => {
+      freeEntryItems(entry).map(cleanIngredientInput).filter(Boolean).forEach(line => {
         const parsed = parseIngredientLine(line);
         if (!parsed) {
           review.push({ line, recipeName: "그외메뉴", sourcePrefix, kind: "그외재료" });
@@ -1679,7 +1679,7 @@
       totals.set(key, current);
     }
     function parseIngredientLine(line) {
-      const cleaned = String(line || "").replace(/^[\s\-*•·\d.)]+/, "").trim();
+      const cleaned = cleanIngredientInput(line);
       const match = cleaned.match(/^(.+?)\s*((?:\d+(?:\.\d+)?|\d+\/\d+)(?:\s*(?:~|-|–|—)\s*(?:\d+(?:\.\d+)?|\d+\/\d+))?)\s*(kg|g|ml|l|L|개|단|봉|팩|캔|병|통|큰술|작은술|T|t|컵|줄|장|알|마리|송이)$/i);
       if (!match) return null;
       const name = match[1].trim();
@@ -1689,6 +1689,19 @@
       const min = range[0] * unitInfo.factor;
       const max = (range[1] ?? range[0]) * unitInfo.factor;
       return { name, unit: unitInfo.unit, min, max, ranged: range.length > 1 };
+    }
+    function cleanIngredientInput(line) {
+      return String(line || "")
+        .replace(/㎏/g, "kg")
+        .replace(/㎖/g, "ml")
+        .replace(/ℓ/g, "L")
+        .replace(/：/g, ":")
+        .replace(/^[\s\-*•·\d.)]+/, "")
+        .replace(/(\d),(\d)/g, "$1$2")
+        .replace(/[()]/g, " ")
+        .replace(/[,:]\s*/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
     }
     function parseIngredientNumber(value) {
       if (String(value).includes("/")) {
