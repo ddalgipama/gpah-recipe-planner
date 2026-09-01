@@ -2224,9 +2224,9 @@
     @media (max-width: 899px) {
       .modal .panel-header.between {
         display: grid !important;
-        grid-template-columns: minmax(0, 1fr) auto !important;
+        grid-template-columns: minmax(0, 1fr) max-content !important;
         align-items: center !important;
-        gap: 10px !important;
+        gap: 8px !important;
         padding: 18px 18px 12px !important;
         border-bottom: 1px solid #f0f1ef !important;
       }
@@ -2242,12 +2242,12 @@
         line-height: 1.15 !important;
       }
       .modal .btn.small {
-        width: auto !important;
-        min-width: 68px !important;
-        max-width: 96px !important;
+        width: 58px !important;
+        min-width: 58px !important;
+        max-width: 58px !important;
         min-height: 36px !important;
         height: 36px !important;
-        padding: 0 12px !important;
+        padding: 0 !important;
         border-radius: 999px !important;
         font-size: 13px !important;
         line-height: 1 !important;
@@ -2255,10 +2255,14 @@
         box-shadow: none !important;
       }
       #printMealDetail {
+        width: 76px !important;
         min-width: 76px !important;
+        max-width: 76px !important;
       }
       #closeRecipeDetail {
+        width: 58px !important;
         min-width: 58px !important;
+        max-width: 58px !important;
       }
       .modal-body.detail {
         padding-top: 12px !important;
