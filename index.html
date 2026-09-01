@@ -104,6 +104,7 @@
     .search-area { display: grid; gap: 12px; padding: 16px; }
     .search-row { display: grid; grid-template-columns: 1fr 42px; gap: 10px; }
     .category-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+    .menu-filter-tabs { width: min(520px, 100%); }
     .category-tabs button, .slot-tabs button {
       min-height: 44px; border-radius: 15px; color: var(--muted); background: #f2f4f2; font-weight: 900;
       border: 1px solid transparent;
@@ -954,6 +955,24 @@
       font-size: 30px;
       line-height: 1;
       filter: drop-shadow(0 8px 10px rgba(24,23,37,.10));
+    }
+    .menu-filter-tabs {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .menu-filter-tabs button {
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 0 8px;
+      border-radius: 14px;
+      font-size: 13px;
+    }
+    .menu-filter-tabs button span {
+      font-size: 16px;
+      filter: none;
     }
     .category-tabs button:nth-child(2) { background: rgba(248,164,76,.15); border-color: rgba(248,164,76,.35); }
     .category-tabs button:nth-child(3) { background: rgba(247,165,147,.20); border-color: rgba(247,165,147,.42); }
@@ -2001,6 +2020,41 @@
         min-height: 82px !important;
         padding: 13px 0 !important;
       }
+      #menuView .panel-header.between {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+        padding-bottom: 8px !important;
+      }
+      .menu-filter-tabs {
+        width: 100% !important;
+        display: grid !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        gap: 6px !important;
+      }
+      .menu-filter-tabs button {
+        min-height: 40px !important;
+        padding: 0 4px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 3px !important;
+        border-radius: 13px !important;
+        font-size: 12px !important;
+        line-height: 1 !important;
+        white-space: nowrap !important;
+      }
+      .menu-filter-tabs button span {
+        font-size: 13px !important;
+        line-height: 1 !important;
+      }
+      #menuView .search-area {
+        padding-top: 0 !important;
+        gap: 4px !important;
+      }
+      #menuView .ingredient-groups {
+        padding-top: 6px !important;
+      }
       .recipe-card-head {
         display: grid !important;
         grid-template-columns: 58px minmax(0, 1fr) 16px !important;
@@ -2322,6 +2376,43 @@
         padding-top: 12px !important;
       }
     }
+    @media (max-width: 899px) {
+      .purchase-tools input[type="date"] {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        height: 56px !important;
+        min-height: 56px !important;
+        padding: 0 !important;
+        line-height: normal !important;
+        text-align: center !important;
+      }
+      .purchase-tools input[type="date"]::-webkit-date-and-time-value {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 100% !important;
+        height: 56px !important;
+        margin: 0 !important;
+        line-height: 56px !important;
+        text-align: center !important;
+      }
+      .purchase-tools input[type="date"]::-webkit-datetime-edit {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 100% !important;
+        height: 56px !important;
+        min-height: 56px !important;
+        line-height: 56px !important;
+        padding: 0 !important;
+      }
+      .purchase-section:first-of-type {
+        margin-top: 18px !important;
+        padding-top: 22px !important;
+        border-top: 2px solid #e3e7e4 !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -2348,6 +2439,12 @@
         <section class="panel">
           <div class="panel-header between">
             <h2 class="panel-title">메뉴검색</h2>
+            <div class="category-tabs menu-filter-tabs" aria-label="메뉴 카테고리">
+              <button type="button" class="active" data-category="all"><span>🍱</span>전체</button>
+              <button type="button" data-category="메인"><span>🍲</span>메인</button>
+              <button type="button" data-category="사이드"><span>🍽️</span>사이드</button>
+              <button type="button" data-category="샐러드"><span>🥗</span>샐러드</button>
+            </div>
           </div>
           <div class="search-area">
             <div class="search-row menu-search-row">
@@ -2355,12 +2452,6 @@
                 <label for="search">메뉴 이름·재료 검색 · 40인분 기준</label>
                 <input id="search" type="search" placeholder="예: 닭다리살, 간장조림">
               </div>
-            </div>
-            <div class="category-tabs" aria-label="메뉴 카테고리">
-              <button type="button" class="active" data-category="all"><span>🍱</span>전체</button>
-              <button type="button" data-category="메인"><span>🍲</span>메인</button>
-              <button type="button" data-category="사이드"><span>🍽️</span>사이드</button>
-              <button type="button" data-category="샐러드"><span>🥗</span>샐러드</button>
             </div>
           </div>
           <div class="ingredient-groups" id="recipeGroups"></div>
@@ -3792,7 +3883,7 @@
     function purchaseTableHtml(title, items, totalCost = 0) {
       if (!items.length) return "";
       return `
-        <section class="needs-review">
+        <section class="needs-review purchase-section">
           <div class="purchase-section-head">
             <h3 class="panel-title">${escapeHtml(title)}</h3>
             <div class="purchase-section-total">비용총합 ${escapeHtml(formatWon(totalCost))}</div>
