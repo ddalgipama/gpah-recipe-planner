@@ -312,6 +312,20 @@
     .free-items { display: grid; gap: 8px; }
     .free-item-row { display: grid; grid-template-columns: 1fr 38px; gap: 8px; align-items: end; }
     .free-item-row .mini-btn { min-height: 42px; }
+    .free-remove-btn {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      border: 1px solid rgba(211, 72, 72, .28);
+      color: #d34848;
+      background: #fff5f5;
+      font-size: 22px;
+      line-height: 1;
+      font-weight: 900;
+      box-shadow: none;
+    }
     .target-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
     .slot-tabs { display: grid; gap: 8px; margin-top: 10px; }
     .drawer-results { display: grid; gap: 8px; max-height: 310px; overflow: auto; }
@@ -1180,6 +1194,19 @@
       min-height: 58px;
       border-radius: 18px;
     }
+    .detail-feedback {
+      display: none;
+      min-height: 34px;
+      align-items: center;
+      justify-content: center;
+      padding: 0 12px;
+      border-radius: 999px;
+      color: var(--main-dark);
+      background: rgba(53, 167, 111, 0.12);
+      font-size: 0.86rem;
+      font-weight: 900;
+    }
+    .detail-feedback.show { display: inline-flex; }
     .recipe-photo {
       border-radius: 18px;
       max-height: 260px;
@@ -2084,6 +2111,16 @@
         font-size: 13px !important;
         line-height: 1.1 !important;
       }
+      .free-item-row {
+        grid-template-columns: minmax(0, 1fr) 42px !important;
+        gap: 8px !important;
+      }
+      .free-remove-btn {
+        width: 42px !important;
+        height: 42px !important;
+        border-radius: 14px !important;
+        font-size: 22px !important;
+      }
       .drawer-card {
         grid-template-columns: 50px minmax(0, 1fr) 80px !important;
         gap: 10px !important;
@@ -2739,6 +2776,7 @@
             </div>
           </div>
           <button type="button" class="btn primary" id="registerDetailRecipe">이 메뉴 등록하기</button>
+          <div class="detail-feedback" id="detailRegisterFeedback" role="status" aria-live="polite"></div>
         </section>
       `;
     }
@@ -2761,8 +2799,18 @@
         savePlan();
         renderCalendar();
         renderPurchase();
-        closeRecipeDetailModal();
+        showDetailFeedback("등록되었습니다.");
       });
+    }
+    function showDetailFeedback(message) {
+      const feedback = document.querySelector("#detailRegisterFeedback");
+      if (!feedback) return;
+      feedback.textContent = message;
+      feedback.classList.add("show");
+      window.clearTimeout(state.detailFeedbackTimer);
+      state.detailFeedbackTimer = window.setTimeout(() => {
+        feedback.classList.remove("show");
+      }, 1500);
     }
     function recipeSlotForMeal(recipe, meal) {
       const type = recipeType(recipe);
@@ -3280,7 +3328,7 @@
       els.drawer.innerHTML = `
         <div class="drawer-head">
           <div>
-            <h3>메뉴등록</h3>
+            <h3>메뉴등록 · 수정</h3>
             <div class="badge-row">
               <span class="badge">${escapeHtml(currentCourse().label)}</span>
               <span class="badge">${escapeHtml(state.language)}</span>
@@ -3535,7 +3583,7 @@
               ${items.map((item, index) => `
                 <div class="free-item-row">
                   <input class="free-text" placeholder="${index === 0 ? "예시) 김치 1kg" : index === 1 ? "예시) 포도 3송이" : "예시) 피클 1kg"}" value="${escapeAttr(item)}">
-                  <button type="button" class="mini-btn danger" data-remove-free="${index}" aria-label="그외메뉴 빈칸 삭제">삭제</button>
+                  <button type="button" class="free-remove-btn" data-remove-free="${index}" aria-label="그외메뉴 빈칸 삭제">−</button>
                 </div>
               `).join("")}
             </div>
