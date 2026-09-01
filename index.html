@@ -315,6 +315,23 @@
     .target-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
     .slot-tabs { display: grid; gap: 8px; margin-top: 10px; }
     .drawer-results { display: grid; gap: 8px; max-height: 310px; overflow: auto; }
+    .drawer-feedback {
+      display: none;
+      min-height: 32px;
+      align-items: center;
+      justify-content: center;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: rgba(53, 167, 111, 0.12);
+      color: var(--main-dark);
+      font-size: 0.82rem;
+      font-weight: 900;
+    }
+    .drawer-feedback.show { display: inline-flex; }
+    .drawer-feedback.danger {
+      background: #fff0f0;
+      color: #c94343;
+    }
     .drawer-card { display: grid; grid-template-columns: 48px 1fr 78px; gap: 10px; align-items: center; }
     .slot-action-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
     .plus-btn, .minus-btn { width: 36px; height: 36px; border-radius: 10px; color: #fff; background: var(--main); font-size: 1.15rem; font-weight: 900; box-shadow: 0 10px 20px rgba(53,167,111,0.2); }
@@ -2306,7 +2323,7 @@
               <button type="button" class="active" data-category="all"><span>🍱</span>전체</button>
               <button type="button" data-category="메인"><span>🍲</span>메인</button>
               <button type="button" data-category="사이드"><span>🍽️</span>사이드</button>
-              <button type="button" data-category="샐러드"><span>🥗</span>샐러드/채소</button>
+              <button type="button" data-category="샐러드"><span>🥗</span>샐러드</button>
             </div>
           </div>
           <div class="ingredient-groups" id="recipeGroups"></div>
@@ -2324,7 +2341,7 @@
           <h2 class="panel-title">과정 캘린더</h2>
         </div>
         <div class="calendar-tools">
-          <button type="button" class="btn primary big-register" id="openCurrentWeek">메뉴등록</button>
+          <button type="button" class="btn primary big-register" id="openCurrentWeek">메뉴등록 · 수정</button>
         </div>
         <div class="drawer" id="registrationDrawer"></div>
         <div class="calendar-heading" id="calendarHeading"></div>
@@ -2496,7 +2513,7 @@
     const days = ["월", "화", "수", "목", "금"];
     const mealLabels = { lunch: "점심", dinner: "저녁" };
     const mealSlots = {
-      lunch: [["main", "메인"], ["side", "사이드"], ["salad", "샐러드 / 채소"], ["rice", "밥"], ["free", "그외메뉴"]],
+      lunch: [["main", "메인"], ["side", "사이드"], ["salad", "샐러드"], ["rice", "밥"], ["free", "그외메뉴"]],
       dinner: [["main", "메인"], ["side", "사이드"], ["rice", "밥"], ["free", "그외메뉴"]]
     };
     const slotType = { main: "메인", side: "사이드", salad: "샐러드", rice: "밥", free: "그외메뉴" };
@@ -2734,7 +2751,7 @@
         const meal = document.querySelector("#detailMeal").value;
         const slot = recipeSlotForMeal(recipe, meal);
         if (!slot) {
-          window.alert("저녁에는 샐러드/채소 슬롯이 없습니다. 점심으로 선택하거나 캘린더 메뉴등록에서 다른 슬롯을 선택해주세요.");
+          window.alert("저녁에는 샐러드 슬롯이 없습니다. 점심으로 선택하거나 캘린더 메뉴등록에서 다른 슬롯을 선택해주세요.");
           return;
         }
         state.plan[planKey(week, day, meal, slot)] = {
@@ -3304,6 +3321,7 @@
             <div class="slot-tabs" aria-label="등록 슬롯">
               ${slots.map(([slot, label]) => `<button type="button" class="${slot === state.activeSlot ? "active" : ""}" data-slot="${slot}">${escapeHtml(label)}</button>`).join("")}
             </div>
+            <div class="drawer-feedback" id="drawerFeedback" role="status" aria-live="polite"></div>
           </div>
           ${isFreeSlot ? renderFreeEntry(target) : isRiceSlot ? renderRiceEntry(target) : `
             <div>
@@ -3453,6 +3471,7 @@
         renderDrawer();
         renderStats();
         renderPurchase();
+        showDrawerFeedback("등록되었습니다.");
       }));
       els.drawer.querySelectorAll("[data-remove-recipe]").forEach(button => button.addEventListener("click", event => {
         event.stopPropagation();
@@ -3464,8 +3483,20 @@
           renderDrawer();
           renderStats();
           renderPurchase();
+          showDrawerFeedback("삭제되었습니다.", "danger");
         }
       }));
+    }
+    function showDrawerFeedback(message, tone = "success") {
+      const feedback = els.drawer.querySelector("#drawerFeedback");
+      if (!feedback) return;
+      feedback.textContent = message;
+      feedback.classList.toggle("danger", tone === "danger");
+      feedback.classList.add("show");
+      window.clearTimeout(state.drawerFeedbackTimer);
+      state.drawerFeedbackTimer = window.setTimeout(() => {
+        feedback.classList.remove("show");
+      }, 1400);
     }
     function persistFreeDraft(target) {
       if (!target) return;
