@@ -1226,6 +1226,18 @@
       font-weight: 900;
     }
     .detail-feedback.show { display: inline-flex; }
+    .calendar-create-form {
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
+    .calendar-create-submit {
+      width: 100%;
+      min-height: 56px;
+      border-radius: 18px;
+      font-size: 1rem;
+    }
     .recipe-photo {
       border-radius: 18px;
       max-height: 260px;
@@ -2375,6 +2387,29 @@
       .modal-body.detail {
         padding-top: 12px !important;
       }
+      .calendar-create-form {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 10px !important;
+        padding: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+      }
+      .calendar-create-form .field:first-child {
+        grid-column: 1 / -1 !important;
+      }
+      .calendar-create-form input,
+      .calendar-create-form select {
+        height: 52px !important;
+        min-height: 52px !important;
+        max-height: 52px !important;
+        border-radius: 15px !important;
+        font-size: 13px !important;
+      }
+      .calendar-create-submit {
+        min-height: 54px !important;
+        border-radius: 18px !important;
+      }
     }
     @media (max-width: 899px) {
       .purchase-tools input[type="date"] {
@@ -2529,47 +2564,60 @@
               </div>
               <div class="admin-menu-list" id="adminMenuList"></div>
             </section>
-            <div class="calendar-settings" id="calendarSettings">
-              <div class="field">
-                <label for="calendarTitle">캘린더 제목</label>
-                <input id="calendarTitle" placeholder="예: SKE33, SCOTW35">
-              </div>
-              <div class="field">
-                <label for="calendarCourseSelect">주차 선택</label>
-                <select id="calendarCourseSelect">
-                  <option value="4-scotw">4주</option>
-                  <option value="5-scotw" selected>5주</option>
-                  <option value="8-ske">8주</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="calendarLanguageSelect">언어</label>
-                <select id="calendarLanguageSelect">
-                  <option value="중국어">중국어</option>
-                  <option value="내밀" selected>내밀</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="startDate">시작일</label>
-                <input id="startDate" type="date">
-              </div>
-              <div class="field">
-                <label for="startTeam">시작팀</label>
-                <select id="startTeam">
-                  <option value="a">A팀</option>
-                  <option value="b">B팀</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="servingCount">인원수</label>
-                <input id="servingCount" type="number" min="1" step="1" placeholder="예: 45">
-              </div>
-            </div>
           </div>
         </div>
       </section>
     </section>
   </main>
+
+  <div class="modal-backdrop" id="calendarCreateModal" role="dialog" aria-modal="true" aria-labelledby="calendarCreateTitle">
+    <div class="modal">
+      <div class="panel-header between">
+        <h2 class="panel-title" id="calendarCreateTitle">캘린더 생성</h2>
+        <button type="button" class="btn small" id="closeCalendarCreate">닫기</button>
+      </div>
+      <div class="modal-body">
+        <div class="calendar-settings open calendar-create-form" id="calendarSettings">
+          <div class="field">
+            <label for="calendarTitle">캘린더 제목</label>
+            <input id="calendarTitle" placeholder="예: SKE33, SCOTW35">
+          </div>
+          <div class="field">
+            <label for="calendarCourseSelect">주차 선택</label>
+            <select id="calendarCourseSelect">
+              <option value="4-scotw">4주</option>
+              <option value="5-scotw" selected>5주</option>
+              <option value="8-ske">8주</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="calendarLanguageSelect">언어</label>
+            <select id="calendarLanguageSelect">
+              <option value="중국어">중국어</option>
+              <option value="내밀" selected>내밀</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="startDate">시작일</label>
+            <input id="startDate" type="date">
+          </div>
+          <div class="field">
+            <label for="startTeam">시작팀</label>
+            <select id="startTeam">
+              <option value="a">A팀</option>
+              <option value="b">B팀</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="servingCount">인원수</label>
+            <input id="servingCount" type="number" min="1" step="1" placeholder="예: 45">
+          </div>
+        </div>
+        <div class="detail-feedback" id="calendarCreateStatus" role="status" aria-live="polite"></div>
+        <button type="button" class="btn primary calendar-create-submit" id="createCalendar">생성하기</button>
+      </div>
+    </div>
+  </div>
 
   <div class="modal-backdrop" id="newRecipeModal" role="dialog" aria-modal="true" aria-labelledby="newRecipeTitle">
     <div class="modal">
@@ -2692,6 +2740,8 @@
       startTeam: document.querySelector("#startTeam"),
       servingCount: document.querySelector("#servingCount"),
       calendarSettings: document.querySelector("#calendarSettings"),
+      calendarCreateModal: document.querySelector("#calendarCreateModal"),
+      calendarCreateStatus: document.querySelector("#calendarCreateStatus"),
       calendarSubtitle: document.querySelector("#calendarSubtitle"),
       adminPassword: document.querySelector("#adminPassword"),
       adminLock: document.querySelector("#adminLock"),
@@ -4289,6 +4339,32 @@
       els.adminLock.style.display = "none";
       els.settingsAdmin.classList.add("open");
     }
+    function openCalendarCreateModal() {
+      syncSelectors();
+      els.calendarCreateStatus.textContent = "";
+      els.calendarCreateStatus.classList.remove("show");
+      els.calendarCreateModal.classList.add("open");
+    }
+    function closeCalendarCreateModal() {
+      els.calendarCreateModal.classList.remove("open");
+    }
+    function createCalendarFromModal() {
+      state.calendarTitle = els.calendarTitle.value.trim();
+      state.course = els.calendarCourseSelect.value;
+      state.language = els.calendarLanguageSelect.value;
+      state.startDate = els.startDate.value || state.startDate;
+      state.startTeam = els.startTeam.value;
+      state.servingCount = Math.max(1, Number(els.servingCount.value || 40));
+      state.purchaseStart = state.startDate;
+      state.purchaseEnd = formatInputDate(addDays(parseDate(state.startDate), 6));
+      state.activeRegistration = null;
+      state.mobileWeek = 1;
+      syncSelectors();
+      saveSharedCalendarSettings();
+      renderAll();
+      els.calendarCreateStatus.textContent = "새 캘린더가 생성되었습니다.";
+      els.calendarCreateStatus.classList.add("show");
+    }
     function groupBy(items, getKey) {
       return items.reduce((groups, item) => {
         const key = getKey(item);
@@ -4399,33 +4475,6 @@
       state.adminSearch = event.target.value;
       renderSettingsMenuManager();
     });
-    els.calendarCourseSelect.addEventListener("change", event => setCourse(event.target.value));
-    els.calendarLanguageSelect.addEventListener("change", event => setLanguage(event.target.value));
-    els.calendarTitle.addEventListener("input", event => {
-      state.calendarTitle = event.target.value;
-      saveSharedCalendarSettings();
-      renderHeaderSubtitle();
-      renderCalendarHeading();
-    });
-    els.startDate.addEventListener("change", event => {
-      state.startDate = event.target.value;
-      saveSharedCalendarSettings();
-      renderCalendar();
-      renderPurchase();
-    });
-    els.startTeam.addEventListener("change", event => {
-      state.startTeam = event.target.value;
-      saveSharedCalendarSettings();
-      renderCalendar();
-      renderDrawer();
-      renderPurchase();
-    });
-    els.servingCount.addEventListener("change", event => {
-      state.servingCount = Math.max(1, Number(event.target.value || 40));
-      saveSharedCalendarSettings();
-      renderCalendarHeading();
-      renderPurchase();
-    });
     els.purchaseStart.addEventListener("change", event => {
       state.purchaseStart = event.target.value;
       saveSharedCalendarSettings();
@@ -4462,9 +4511,9 @@
       state.calendarSearch = "";
       renderDrawer();
     });
-    document.querySelector("#toggleCalendarSettings").addEventListener("click", () => {
-      els.calendarSettings.classList.toggle("open");
-    });
+    document.querySelector("#toggleCalendarSettings").addEventListener("click", openCalendarCreateModal);
+    document.querySelector("#closeCalendarCreate").addEventListener("click", closeCalendarCreateModal);
+    document.querySelector("#createCalendar").addEventListener("click", createCalendarFromModal);
     document.querySelector("#exportExcel").addEventListener("click", exportExcel);
     document.querySelector("#printMealDetail").addEventListener("click", downloadMealDetail);
     document.querySelector("#closeRecipeDetail").addEventListener("click", closeRecipeDetailModal);
