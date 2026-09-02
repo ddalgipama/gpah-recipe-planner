@@ -3051,7 +3051,9 @@
           window.alert("저녁에는 샐러드 슬롯이 없습니다. 점심으로 선택하거나 캘린더 메뉴등록에서 다른 슬롯을 선택해주세요.");
           return;
         }
-        state.plan[planKey(week, day, meal, slot)] = {
+        const key = planKey(week, day, meal, slot);
+        if (!confirmRecipeReplacement(key, recipe.id)) return;
+        state.plan[key] = {
           recipeId: recipe.id,
           author: state.registrationAuthor || ""
         };
@@ -3852,7 +3854,9 @@
       els.drawer.querySelectorAll("[data-assign-recipe]").forEach(button => button.addEventListener("click", event => {
         event.stopPropagation();
         state.registrationAuthor = els.drawer.querySelector("#authorName").value.trim();
-        state.plan[planKey(target.week, target.day, target.meal, state.activeSlot)] = {
+        const key = planKey(target.week, target.day, target.meal, state.activeSlot);
+        if (!confirmRecipeReplacement(key, button.dataset.assignRecipe)) return;
+        state.plan[key] = {
           recipeId: button.dataset.assignRecipe,
           author: state.registrationAuthor
         };
@@ -4045,6 +4049,13 @@
       };
     }
     function planKey(week, day, meal, slot) { return `${state.course}|${state.language}|${week}|${day}|${meal}|${slot}`; }
+    function confirmRecipeReplacement(key, nextRecipeId) {
+      const current = state.plan[key];
+      if (!current?.recipeId || current.recipeId === nextRecipeId) return true;
+      const currentRecipe = recipes.find(recipe => recipe.id === current.recipeId);
+      const currentName = currentRecipe?.name || "기존 메뉴";
+      return window.confirm(`${currentName} 메뉴가 이미 등록되어 있습니다.\n새 메뉴로 바꾸시겠습니까?`);
+    }
     function savePlan() {
       saveJson(planStoreKey, state.plan);
       postCalendarToSheets();
