@@ -243,6 +243,8 @@
     .meal-cell { display: grid; gap: 8px; align-content: start; background: #ffffff; }
     .meal-cell.has-menu { cursor: pointer; }
     .meal-cell.has-menu:hover { outline: 2px solid rgba(45,111,107,0.34); outline-offset: -2px; }
+    .meal-cell.is-empty { cursor: pointer; }
+    .meal-cell.is-empty:hover { outline: 2px dashed rgba(83,177,117,0.35); outline-offset: -2px; }
     .meal-cell.team-a { background: rgba(231,247,238,0.78); }
     .meal-cell.team-b { background: rgba(255,243,223,0.78); }
     .registered { display: grid; gap: 4px; }
@@ -330,6 +332,28 @@
     .target-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
     .slot-tabs { display: grid; gap: 8px; margin-top: 10px; }
     .drawer-results { display: grid; gap: 8px; max-height: 310px; overflow: auto; }
+    .current-meal-list {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .current-meal-list-title {
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 900;
+    }
+    .current-meal-card {
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr) 36px;
+      gap: 10px;
+      align-items: center;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fff;
+    }
     .drawer-feedback {
       display: none;
       min-height: 32px;
@@ -355,6 +379,7 @@
     .modal-backdrop { position: fixed; inset: 0; display: none; place-items: center; padding: 18px; background: rgba(24,33,31,0.30); backdrop-filter: blur(8px); z-index: 20; }
     .modal-backdrop.open { display: grid; }
     .modal { width: min(720px, 100%); max-height: calc(100vh - 36px); overflow: auto; border-radius: 8px; border: 1px solid rgba(255,255,255,0.82); background: var(--paper); box-shadow: 0 26px 72px rgba(24,33,31,0.18); }
+    .modal-action-row { display: inline-flex; align-items: center; justify-content: flex-end; gap: 7px; }
     .modal-body { display: grid; gap: 12px; padding: 16px; }
     .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
     @media (max-width: 1050px) {
@@ -2139,6 +2164,10 @@
         font-size: 24px !important;
         line-height: 1 !important;
       }
+      .mobile-meal.is-empty .free-entry {
+        color: var(--main-dark);
+        background: rgba(53, 167, 111, .10);
+      }
       .drawer.open {
         left: 10px !important;
         right: 10px !important;
@@ -2193,6 +2222,22 @@
         padding: 12px !important;
         border-radius: 18px !important;
         box-shadow: none !important;
+      }
+      .current-meal-list {
+        gap: 7px !important;
+        margin-bottom: 10px !important;
+        padding-bottom: 10px !important;
+      }
+      .current-meal-card {
+        grid-template-columns: 46px minmax(0, 1fr) 36px !important;
+        gap: 9px !important;
+        padding: 9px !important;
+        border-radius: 16px !important;
+      }
+      .current-meal-card .recipe-thumb {
+        width: 42px !important;
+        height: 42px !important;
+        border-radius: 13px !important;
       }
       .drawer-card .recipe-thumb {
         width: 46px !important;
@@ -2362,9 +2407,9 @@
         line-height: 1.15 !important;
       }
       .modal .btn.small {
-        width: 58px !important;
-        min-width: 58px !important;
-        max-width: 58px !important;
+        width: 62px !important;
+        min-width: 62px !important;
+        max-width: 62px !important;
         min-height: 36px !important;
         height: 36px !important;
         padding: 0 !important;
@@ -2379,10 +2424,19 @@
         min-width: 76px !important;
         max-width: 76px !important;
       }
+      #editMealDetail {
+        width: 76px !important;
+        min-width: 76px !important;
+        max-width: 76px !important;
+      }
       #closeRecipeDetail {
         width: 58px !important;
         min-width: 58px !important;
         max-width: 58px !important;
+      }
+      .modal-action-row {
+        display: inline-flex !important;
+        gap: 6px !important;
       }
       .modal-body.detail {
         padding-top: 12px !important;
@@ -2502,9 +2556,6 @@
       <section class="panel">
         <div class="panel-header between calendar-titlebar">
           <h2 class="panel-title">과정 캘린더</h2>
-        </div>
-        <div class="calendar-tools">
-          <button type="button" class="btn primary big-register" id="openCurrentWeek">메뉴등록 · 수정</button>
         </div>
         <div class="drawer" id="registrationDrawer"></div>
         <div class="calendar-heading" id="calendarHeading"></div>
@@ -2662,7 +2713,10 @@
     <div class="modal">
       <div class="panel-header between">
         <h2 class="panel-title" id="mealDetailTitle">등록 메뉴 상세</h2>
-        <button type="button" class="btn small" id="printMealDetail">인쇄하기</button>
+        <div class="modal-action-row">
+          <button type="button" class="btn small" id="editMealDetail">수정하기</button>
+          <button type="button" class="btn small" id="printMealDetail">인쇄하기</button>
+        </div>
       </div>
       <div class="modal-body" id="mealDetailBody"></div>
     </div>
@@ -3303,6 +3357,29 @@
       }).join("");
       els.mealDetailModal.classList.add("open");
     }
+    function openRegistrationDrawer(week, day, meal, slot = "") {
+      state.activeMealDetail = null;
+      els.mealDetailModal.classList.remove("open");
+      state.activeRegistration = { week, day, meal };
+      state.activeSlot = slot || firstEditableSlot(week, day, meal);
+      state.calendarSearch = "";
+      renderDrawer();
+    }
+    function firstEditableSlot(week, day, meal) {
+      const filled = mealSlots[meal].find(([slot]) => {
+        const entry = state.plan[planKey(week, day, meal, slot)];
+        if (!entry) return false;
+        if (slot === "free") return Boolean(freeEntryText(entry));
+        if (slot === "rice") return Boolean(riceEntryLabel(entry));
+        return Boolean(entry.recipeId);
+      });
+      return filled?.[0] || mealSlots[meal][0][0];
+    }
+    function editActiveMealDetail() {
+      const detail = state.activeMealDetail;
+      if (!detail) return;
+      openRegistrationDrawer(detail.week, detail.day, detail.meal, detail.items[0]?.slot || "");
+    }
     function downloadMealDetail() {
       const detail = state.activeMealDetail;
       if (!detail) return;
@@ -3369,9 +3446,13 @@
         });
       }
       els.calendar.innerHTML = parts.join("");
-      els.calendar.querySelectorAll("[data-meal-detail]").forEach(cell => {
+      els.calendar.querySelectorAll("[data-meal-target]").forEach(cell => {
         cell.addEventListener("click", () => {
-          openMealDetail(Number(cell.dataset.week), cell.dataset.day, cell.dataset.meal);
+          const week = Number(cell.dataset.week);
+          const day = cell.dataset.day;
+          const meal = cell.dataset.meal;
+          if (cell.dataset.hasMenu === "true") openMealDetail(week, day, meal);
+          else openRegistrationDrawer(week, day, meal);
         });
       });
       renderMobileCalendar();
@@ -3406,9 +3487,13 @@
           renderMobileCalendar();
         });
       });
-      els.mobileCalendar.querySelectorAll("[data-mobile-meal-detail]").forEach(button => {
+      els.mobileCalendar.querySelectorAll("[data-mobile-meal-target]").forEach(button => {
         button.addEventListener("click", () => {
-          openMealDetail(Number(button.dataset.week), button.dataset.day, button.dataset.meal);
+          const week = Number(button.dataset.week);
+          const day = button.dataset.day;
+          const meal = button.dataset.meal;
+          if (button.dataset.hasMenu === "true") openMealDetail(week, day, meal);
+          else openRegistrationDrawer(week, day, meal);
         });
       });
     }
@@ -3425,7 +3510,7 @@
         ? selected.map(item => `<div class="mobile-menu-line"><strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(item.value)}</span></div>`).join("")
         : '<div class="free-entry">등록된 메뉴 없음</div>';
       return `
-        <button type="button" class="mobile-meal ${hasMenu ? "has-menu" : ""}" ${hasMenu ? `data-mobile-meal-detail data-week="${week}" data-day="${escapeAttr(day)}" data-meal="${meal}"` : ""}>
+        <button type="button" class="mobile-meal ${hasMenu ? "has-menu" : "is-empty"}" data-mobile-meal-target data-has-menu="${hasMenu ? "true" : "false"}" data-week="${week}" data-day="${escapeAttr(day)}" data-meal="${meal}">
           <div class="mobile-meal-title">${escapeHtml(mealLabels[meal])}</div>
           ${lines}
           ${author ? `<div class="author">작성자: ${escapeHtml(author)}</div>` : ""}
@@ -3443,7 +3528,7 @@
       const author = currentAuthor({ week, day, meal });
       const hasMenu = selected.some(item => item.slot === "free" ? freeEntryText(item.entry) : item.slot === "rice" ? riceEntryLabel(item.entry) : item.recipe);
       return `
-        <div class="cal-cell meal-cell team-${teamKey} ${hasMenu ? "has-menu" : ""}" ${hasMenu ? `data-meal-detail data-week="${week}" data-day="${escapeAttr(day)}" data-meal="${meal}"` : ""}>
+        <div class="cal-cell meal-cell team-${teamKey} ${hasMenu ? "has-menu" : "is-empty"}" data-meal-target data-has-menu="${hasMenu ? "true" : "false"}" data-week="${week}" data-day="${escapeAttr(day)}" data-meal="${meal}">
           <div class="cell-date">${escapeHtml(formatDate(cellDate))}</div>
           <div class="registered">
             ${selected.map(item => {
@@ -3514,6 +3599,7 @@
           </div>
           ${isFreeSlot ? renderFreeEntry(target) : isRiceSlot ? renderRiceEntry(target) : `
             <div>
+              ${currentMealListHtml(target)}
               <div class="field" style="margin-bottom: 10px">
                 <label for="calendarSearch">메뉴 검색</label>
                 <input id="calendarSearch" type="search" placeholder="메뉴명 또는 재료" value="${escapeAttr(state.calendarSearch)}">
@@ -3548,6 +3634,7 @@
         });
       }
       bindDrawerResultActions();
+      bindCurrentMealActions();
       const saveFree = els.drawer.querySelector("#saveFreeEntry");
       if (saveFree) {
         saveFree.addEventListener("click", () => {
@@ -3641,6 +3728,54 @@
             <button type="button" class="plus-btn" data-assign-recipe="${escapeAttr(recipe.id)}" aria-label="${escapeAttr(recipe.name)} 추가">+</button>
           </div>
         </div>`).join("") : '<div class="empty">해당 슬롯에 등록할 메뉴가 없습니다.</div>';
+    }
+    function currentMealListHtml(target) {
+      const entries = mealSlots[target.meal].map(([slot, label]) => {
+        const entry = state.plan[planKey(target.week, target.day, target.meal, slot)];
+        if (!entry) return null;
+        if (slot === "free") {
+          const text = freeEntryText(entry);
+          return text ? { slot, label, name: text.split("\n")[0], meta: "그외메뉴", thumb: "＋" } : null;
+        }
+        if (slot === "rice") {
+          const text = riceEntryLabel(entry);
+          return text ? { slot, label, name: text, meta: "밥", thumb: "🍚" } : null;
+        }
+        const recipe = recipes.find(item => item.id === entry.recipeId);
+        return recipe ? { slot, label, name: recipe.name, meta: `${recipeType(recipe)} · ${recipe.time || "시간 미정"}`, recipe } : null;
+      }).filter(Boolean);
+      if (!entries.length) return "";
+      return `
+        <section class="current-meal-list">
+          <div class="current-meal-list-title">현재 등록 메뉴</div>
+          ${entries.map(item => `
+            <div class="current-meal-card">
+              <div class="recipe-thumb">${item.recipe ? recipeThumbHtml(item.recipe) : `<span aria-hidden="true">${escapeHtml(item.thumb)}</span>`}</div>
+              <div>
+                <div class="drawer-recipe-name">${escapeHtml(item.label)} · ${escapeHtml(item.name)}</div>
+                <div class="drawer-recipe-meta">${escapeHtml(item.meta)}</div>
+              </div>
+              <button type="button" class="minus-btn" data-remove-slot="${escapeAttr(item.slot)}" aria-label="${escapeAttr(item.label)} 삭제">−</button>
+            </div>
+          `).join("")}
+        </section>
+      `;
+    }
+    function bindCurrentMealActions() {
+      const target = state.activeRegistration;
+      if (!target) return;
+      els.drawer.querySelectorAll("[data-remove-slot]").forEach(button => {
+        button.addEventListener("click", event => {
+          event.stopPropagation();
+          delete state.plan[planKey(target.week, target.day, target.meal, button.dataset.removeSlot)];
+          savePlan();
+          renderCalendar();
+          renderDrawer();
+          renderStats();
+          renderPurchase();
+          showDrawerFeedback("삭제되었습니다.", "danger");
+        });
+      });
     }
     function bindDrawerResultActions() {
       const target = state.activeRegistration;
@@ -4505,16 +4640,11 @@
       saveSharedCalendarSettings();
       renderPurchase();
     });
-    document.querySelector("#openCurrentWeek").addEventListener("click", () => {
-      state.activeRegistration = { week: 1, day: "월", meal: "lunch" };
-      state.activeSlot = "main";
-      state.calendarSearch = "";
-      renderDrawer();
-    });
     document.querySelector("#toggleCalendarSettings").addEventListener("click", openCalendarCreateModal);
     document.querySelector("#closeCalendarCreate").addEventListener("click", closeCalendarCreateModal);
     document.querySelector("#createCalendar").addEventListener("click", createCalendarFromModal);
     document.querySelector("#exportExcel").addEventListener("click", exportExcel);
+    document.querySelector("#editMealDetail").addEventListener("click", editActiveMealDetail);
     document.querySelector("#printMealDetail").addEventListener("click", downloadMealDetail);
     document.querySelector("#closeRecipeDetail").addEventListener("click", closeRecipeDetailModal);
     document.querySelector("#openNewRecipe").addEventListener("click", () => openRecipeModal());
