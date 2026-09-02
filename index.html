@@ -100,11 +100,21 @@
     .panel-header { padding: 20px 22px 16px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,0.72); }
     .panel-header.between { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .panel-title { margin: 0; font-size: 1.04rem; line-height: 1.2; }
+    .menu-panel-header { display: grid; gap: 10px; }
+    .menu-header-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .menu-layout { display: grid; grid-template-columns: minmax(360px, 440px) minmax(0, 1fr); gap: 18px; align-items: start; }
     .search-area { display: grid; gap: 12px; padding: 16px; }
     .search-row { display: grid; grid-template-columns: 1fr 42px; gap: 10px; }
     .category-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-    .menu-filter-tabs { width: min(520px, 100%); }
+    .menu-filter-tabs { width: 100%; }
+    .tag-filter-row { display: flex; justify-content: flex-end; flex: 0 0 auto; }
+    .tag-filter-row button {
+      min-height: 44px; padding: 0 14px; border-radius: 15px;
+      border: 1px solid rgba(137,100,204,0.28); background: rgba(137,100,204,0.11);
+      color: #7350b6; font-size: 0.9rem; font-weight: 900;
+    }
+    .tag-filter-row button span { margin-right: 5px; line-height: 1; }
+    .tag-filter-row button.active { color: #fff; background: #8964cc; border-color: #8964cc; box-shadow: 0 10px 18px rgba(137,100,204,.22); }
     .category-tabs button, .slot-tabs button {
       min-height: 44px; border-radius: 15px; color: var(--muted); background: #f2f4f2; font-weight: 900;
       border: 1px solid transparent;
@@ -142,9 +152,10 @@
       display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px; border-radius: 999px;
       color: var(--muted); background: #eef6f1; font-size: 0.75rem; font-weight: 800;
     }
-    .badge.main { color: var(--main-dark); background: rgba(53,167,111,0.14); }
-    .badge.side { color: #a95d20; background: rgba(216,136,69,0.16); }
+    .badge.main { color: #b46417; background: rgba(248,164,76,0.18); }
+    .badge.side { color: #b85f78; background: rgba(247,165,147,0.22); }
     .badge.salad { color: #477d42; background: rgba(105,168,87,0.15); }
+    .badge.naemil { color: #7350b6; background: rgba(137,100,204,0.13); }
     .detail { padding: 16px; display: grid; gap: 13px; }
     .detail h3 { margin: 0; font-size: 1.28rem; line-height: 1.22; }
     .recipe-photo {
@@ -1002,6 +1013,21 @@
     .category-tabs button:nth-child(2) { background: rgba(248,164,76,.15); border-color: rgba(248,164,76,.35); }
     .category-tabs button:nth-child(3) { background: rgba(247,165,147,.20); border-color: rgba(247,165,147,.42); }
     .category-tabs button:nth-child(4) { background: rgba(83,177,117,.13); border-color: rgba(83,177,117,.38); }
+    .category-tabs button[data-category="메인"].active {
+      background: #f8a44c !important;
+      border-color: #f8a44c !important;
+      box-shadow: 0 10px 18px rgba(248,164,76,.26) !important;
+    }
+    .category-tabs button[data-category="사이드"].active {
+      background: #f7a593 !important;
+      border-color: #f7a593 !important;
+      box-shadow: 0 10px 18px rgba(247,165,147,.24) !important;
+    }
+    .category-tabs button[data-category="샐러드"].active {
+      background: var(--green) !important;
+      border-color: var(--green) !important;
+      box-shadow: 0 10px 18px rgba(83,177,117,.26) !important;
+    }
     .category-tabs button.active,
     .slot-tabs button.active,
     .week-tab.active {
@@ -1147,6 +1173,10 @@
       background: var(--fill);
       font-size: 12.5px;
     }
+    .badge.main { color: #b46417; background: rgba(248,164,76,0.18); }
+    .badge.side { color: #b85f78; background: rgba(247,165,147,0.22); }
+    .badge.salad { color: #477d42; background: rgba(83,177,117,0.16); }
+    .badge.naemil { color: #7350b6; background: rgba(137,100,204,0.13); }
     .detail { gap: 14px; }
     .detail-hero {
       margin: -16px -16px 0;
@@ -2063,6 +2093,16 @@
         gap: 10px !important;
         padding-bottom: 8px !important;
       }
+      #menuView .menu-panel-header {
+        gap: 8px !important;
+        padding-bottom: 8px !important;
+      }
+      .menu-header-top {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 10px !important;
+      }
       .menu-filter-tabs {
         width: 100% !important;
         display: grid !important;
@@ -2084,6 +2124,16 @@
       .menu-filter-tabs button span {
         font-size: 13px !important;
         line-height: 1 !important;
+      }
+      .tag-filter-row {
+        justify-content: flex-end !important;
+        margin: 0 !important;
+      }
+      .tag-filter-row button {
+        min-height: 40px !important;
+        padding: 0 12px !important;
+        border-radius: 13px !important;
+        font-size: 12px !important;
       }
       #menuView .search-area {
         padding-top: 0 !important;
@@ -2526,8 +2576,13 @@
     <section class="view active" id="menuView">
       <div class="menu-layout">
         <section class="panel">
-          <div class="panel-header between">
-            <h2 class="panel-title">메뉴검색</h2>
+          <div class="panel-header menu-panel-header">
+            <div class="menu-header-top">
+              <h2 class="panel-title">메뉴검색</h2>
+              <div class="tag-filter-row" aria-label="메뉴 태그">
+                <button type="button" data-language-filter="내밀"><span>🧸</span>내밀메뉴</button>
+              </div>
+            </div>
             <div class="category-tabs menu-filter-tabs" aria-label="메뉴 카테고리">
               <button type="button" class="active" data-category="all"><span>🍱</span>전체</button>
               <button type="button" data-category="메인"><span>🍲</span>메인</button>
@@ -2770,6 +2825,7 @@
       startTeam: savedSettings.startTeam || "a",
       servingCount: Number(savedSettings.servingCount || 40),
       menuCategory: "all",
+      menuLanguageFilter: "",
       search: "",
       adminSearch: "",
       calendarSearch: "",
@@ -2831,10 +2887,17 @@
     }
     function recipeMatchesQuery(recipe, query) {
       if (!query) return true;
-      return normalize([recipe.name, recipe.type, recipe.mainIngredients, recipe.sauceIngredients, recipe.recipe, recipe.chefTeam].join(" ")).includes(normalize(query));
+      return normalize([recipe.name, recipe.type, recipe.language, recipe.mainIngredients, recipe.sauceIngredients, recipe.recipe, recipe.chefTeam].join(" ")).includes(normalize(query));
+    }
+    function recipeMatchesLanguageFilter(recipe) {
+      return !state.menuLanguageFilter || normalize(recipe.language) === normalize(state.menuLanguageFilter);
     }
     function visibleRecipes(category = state.menuCategory, query = state.search) {
-      return recipes.filter(recipe => (category === "all" || recipeType(recipe) === category) && recipeMatchesQuery(recipe, query));
+      return recipes.filter(recipe =>
+        (category === "all" || recipeType(recipe) === category) &&
+        recipeMatchesLanguageFilter(recipe) &&
+        recipeMatchesQuery(recipe, query)
+      );
     }
     function recipeType(recipe) { return normalizeType(recipe?.type || ""); }
     function typeClass(type) {
@@ -2930,6 +2993,7 @@
           <span class="badge ${typeClass(recipe.type)}">${escapeHtml(recipe.type)}</span>
           <span class="badge">소요시간 ${escapeHtml(recipe.time || "미정")}</span>
           <span class="badge">40인분 기준</span>
+          ${normalize(recipe.language) === normalize("내밀") ? '<span class="badge naemil">내밀</span>' : ""}
         </div>
         ${ingredientDetailBlock("주재료", recipe.mainIngredients)}
         ${ingredientDetailBlock("소스재료", recipe.sauceIngredients, true)}
@@ -4606,8 +4670,18 @@
       state.menuCategory = button.dataset.category;
       document.querySelectorAll("[data-category]").forEach(item => item.classList.toggle("active", item === button));
       renderMenu();
+      renderStats();
     }));
-    els.search.addEventListener("input", event => { state.search = event.target.value; renderMenu(); });
+    document.querySelectorAll("[data-language-filter]").forEach(button => button.addEventListener("click", () => {
+      const nextFilter = button.dataset.languageFilter || "";
+      state.menuLanguageFilter = state.menuLanguageFilter === nextFilter ? "" : nextFilter;
+      document.querySelectorAll("[data-language-filter]").forEach(item => {
+        item.classList.toggle("active", state.menuLanguageFilter === item.dataset.languageFilter);
+      });
+      renderMenu();
+      renderStats();
+    }));
+    els.search.addEventListener("input", event => { state.search = event.target.value; renderMenu(); renderStats(); });
     els.adminMenuSearch.addEventListener("input", event => {
       state.adminSearch = event.target.value;
       renderSettingsMenuManager();
