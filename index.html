@@ -2881,16 +2881,26 @@
 
     function normalize(value) { return String(value || "").toLowerCase().replace(/\s+/g, ""); }
     function currentCourse() { return courses[state.course]; }
+    function recipeLanguageTags(recipe) {
+      return String(recipe?.language || "")
+        .split(/[,/|·ㆍ\n]+/)
+        .map(item => normalize(item))
+        .filter(Boolean);
+    }
+    function recipeHasLanguageTag(recipe, tag) {
+      const normalizedTag = normalize(tag);
+      return recipeLanguageTags(recipe).some(item => item === normalizedTag || item.includes(normalizedTag));
+    }
     function recipeMatchesContext(recipe) {
       const schoolOk = !recipe.school || recipe.school.startsWith(currentCourse().schoolPrefix);
-      return recipe.language === state.language && schoolOk;
+      return (!recipe.language || recipeHasLanguageTag(recipe, state.language)) && schoolOk;
     }
     function recipeMatchesQuery(recipe, query) {
       if (!query) return true;
       return normalize([recipe.name, recipe.type, recipe.language, recipe.mainIngredients, recipe.sauceIngredients, recipe.recipe, recipe.chefTeam].join(" ")).includes(normalize(query));
     }
     function recipeMatchesLanguageFilter(recipe) {
-      return !state.menuLanguageFilter || normalize(recipe.language) === normalize(state.menuLanguageFilter);
+      return !state.menuLanguageFilter || recipeHasLanguageTag(recipe, state.menuLanguageFilter);
     }
     function visibleRecipes(category = state.menuCategory, query = state.search) {
       return recipes.filter(recipe =>
@@ -2993,7 +3003,7 @@
           <span class="badge ${typeClass(recipe.type)}">${escapeHtml(recipe.type)}</span>
           <span class="badge">소요시간 ${escapeHtml(recipe.time || "미정")}</span>
           <span class="badge">40인분 기준</span>
-          ${normalize(recipe.language) === normalize("내밀") ? '<span class="badge naemil">내밀</span>' : ""}
+          ${recipeHasLanguageTag(recipe, "내밀") ? '<span class="badge naemil">내밀</span>' : ""}
         </div>
         ${ingredientDetailBlock("주재료", recipe.mainIngredients)}
         ${ingredientDetailBlock("소스재료", recipe.sauceIngredients, true)}
@@ -3178,12 +3188,14 @@
       };
       const name = value("메뉴 이름", "메뉴이름", "name", "menu");
       if (!name) return null;
+      const language = value("언어", "언어열", "언어구분", "과정", "language");
+      const type = normalizeType(value("분류", "메인/사이드", "메인사이드", "type")) || "메인";
       return {
-        id: value("id", "메뉴ID", "recipeId") || `${prefix}-${Date.now()}-${index}`,
-        language: value("언어", "language") || state.language,
+        id: value("id", "메뉴ID", "recipeId") || `${prefix}-${normalize([name, type, language].join("-")) || index}`,
+        language,
         school: value("학교", "학교코드", "school"),
         chefTeam: value("쉐프팀", "작성자", "chef", "author"),
-        type: normalizeType(value("분류", "메인/사이드", "메인사이드", "type")) || "메인",
+        type,
         name,
         time: value("소요시간", "시간", "time"),
         mainIngredients: value("주재료", "재료", "main ingredients"),
@@ -3231,16 +3243,19 @@
     }
     function upsertLocalRecipes(incoming) {
       incoming.forEach(recipe => {
-        const recipeIndex = recipes.findIndex(item => item.id === recipe.id);
+        const recipeIndex = recipes.findIndex(item => item.id === recipe.id || recipeFingerprint(item) === recipeFingerprint(recipe));
         if (recipeIndex >= 0) recipes[recipeIndex] = recipe;
         else recipes.push(recipe);
-        const savedIndex = savedRecipes.findIndex(item => item.id === recipe.id);
+        const savedIndex = savedRecipes.findIndex(item => item.id === recipe.id || recipeFingerprint(item) === recipeFingerprint(recipe));
         if (savedIndex >= 0) savedRecipes[savedIndex] = recipe;
         else savedRecipes.push(recipe);
       });
       saveJson(recipeStoreKey, savedRecipes);
       if (!recipes.some(recipe => recipe.id === state.selectedId)) state.selectedId = recipes[0]?.id || null;
       renderAll();
+    }
+    function recipeFingerprint(recipe) {
+      return normalize([recipe?.name, recipe?.type, recipe?.school].join("|"));
     }
     function openSheetsModal() {
       els.sheetsUrl.value = state.sheetsUrl;
