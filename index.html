@@ -2703,15 +2703,19 @@
             </select>
           </div>
           <div class="field">
-            <label for="startDate">시작일</label>
+            <label for="startDate">식사 시작일</label>
             <input id="startDate" type="date">
+          </div>
+          <div class="field">
+            <label for="officialStartDate">정식 과정 시작일</label>
+            <input id="officialStartDate" type="date">
           </div>
           <div class="field">
             <label for="endDate">종료일</label>
             <input id="endDate" type="date">
           </div>
           <div class="field">
-            <label for="startTeam">시작팀</label>
+            <label for="startTeam">정식 1주차 시작팀</label>
             <select id="startTeam">
               <option value="a">A팀</option>
               <option value="b">B팀</option>
@@ -2826,6 +2830,7 @@
       language: savedSettings.language || "내밀",
       calendarTitle: savedSettings.calendarTitle || "",
       startDate: savedSettings.startDate || "2026-08-31",
+      officialStartDate: savedSettings.officialStartDate || savedSettings.startDate || "2026-08-31",
       endDate: savedSettings.endDate || legacyCalendarEndDate(savedSettings.startDate || "2026-08-31", savedSettings.course || "5-scotw"),
       startTeam: savedSettings.startTeam || "a",
       servingCount: Number(savedSettings.servingCount || 40),
@@ -2851,6 +2856,7 @@
       calendarLanguageSelect: document.querySelector("#calendarLanguageSelect"),
       calendarTitle: document.querySelector("#calendarTitle"),
       startDate: document.querySelector("#startDate"),
+      officialStartDate: document.querySelector("#officialStartDate"),
       endDate: document.querySelector("#endDate"),
       startTeam: document.querySelector("#startTeam"),
       servingCount: document.querySelector("#servingCount"),
@@ -2906,6 +2912,19 @@
       const firstMonday = weekStartForDate(firstWeekdayOnOrAfter(state.startDate));
       const lastMonday = weekStartForDate(lastWeekdayOnOrBefore(state.endDate));
       return Math.max(1, Math.round((lastMonday - firstMonday) / 604800000) + 1);
+    }
+    function officialCalendarWeek() {
+      const firstMonday = weekStartForDate(firstWeekdayOnOrAfter(state.startDate));
+      const officialMonday = weekStartForDate(parseDate(state.officialStartDate || state.startDate));
+      return Math.max(1, Math.round((officialMonday - firstMonday) / 604800000) + 1);
+    }
+    function displayWeekLabel(week) {
+      const officialWeek = officialCalendarWeek();
+      if (week < officialWeek) {
+        const distance = officialWeek - week;
+        return distance === 1 ? "예비주" : `예비 ${distance}주`;
+      }
+      return `${week - officialWeek + 1}주차`;
     }
     function currentCourse() {
       const legacy = courses[state.course];
@@ -3088,7 +3107,7 @@
           <div class="detail-register-grid">
             <div class="field">
               <label for="detailWeek">주차</label>
-              <select id="detailWeek">${Array.from({ length: currentCourse().weeks }, (_, index) => index + 1).map(week => `<option value="${week}">${week}주차</option>`).join("")}</select>
+              <select id="detailWeek">${Array.from({ length: currentCourse().weeks }, (_, index) => index + 1).map(week => `<option value="${week}">${escapeHtml(displayWeekLabel(week))}</option>`).join("")}</select>
             </div>
             <div class="field">
               <label for="detailDay">요일</label>
@@ -3379,6 +3398,7 @@
       const settings = calendar.settings || {};
       state.calendarTitle = settings.calendarTitle || state.calendarTitle;
       state.startDate = settings.startDate || state.startDate;
+      state.officialStartDate = settings.officialStartDate || settings.startDate || state.officialStartDate || state.startDate;
       state.endDate = settings.endDate || (settings.course ? legacyCalendarEndDate(state.startDate, settings.course) : state.endDate);
       state.startTeam = settings.startTeam || state.startTeam;
       state.servingCount = Number(settings.servingCount || state.servingCount || 40);
@@ -3502,7 +3522,7 @@
         return { slot, label, entry, recipe };
       }).filter(item => item.slot === "free" ? freeEntryText(item.entry) : item.slot === "rice" ? riceEntryLabel(item.entry) : item.recipe);
       state.activeMealDetail = { week, day, meal, items };
-      document.querySelector("#mealDetailTitle").textContent = `${week}주차 ${day}요일 ${mealLabels[meal]} · ${formatDate(dateForCell(week, dayIndex))}`;
+      document.querySelector("#mealDetailTitle").textContent = `${displayWeekLabel(week)} ${day}요일 ${mealLabels[meal]} · ${formatDate(dateForCell(week, dayIndex))}`;
       els.mealDetailBody.innerHTML = items.map(item => {
         if (item.slot === "free") {
           return detailBlock(item.label, freeEntryText(item.entry));
@@ -3552,7 +3572,7 @@
       const detail = state.activeMealDetail;
       if (!detail) return;
       const dayIndex = days.indexOf(detail.day);
-      const title = `${state.calendarTitle || currentCourse().label} ${detail.week}주차 ${detail.day}요일 ${mealLabels[detail.meal]}`;
+      const title = `${state.calendarTitle || currentCourse().label} ${displayWeekLabel(detail.week)} ${detail.day}요일 ${mealLabels[detail.meal]}`;
       const sections = detail.items.map(item => {
         if (item.slot === "free") {
           return `<section><h2>${escapeHtml(item.label)}</h2><pre>${escapeHtml(freeEntryText(item.entry))}</pre></section>`;
@@ -3607,7 +3627,7 @@
       days.forEach(day => parts.push(`<div class="cal-head cal-cell">${day}</div>`));
       for (let week = 1; week <= currentCourse().weeks; week++) {
         const team = teamForWeek(week);
-        parts.push(`<div class="cal-cell week-cell team-${team.key}" style="grid-row: span 2">${week}주차<br>${team.label}</div>`);
+        parts.push(`<div class="cal-cell week-cell team-${team.key}" style="grid-row: span 2">${escapeHtml(displayWeekLabel(week))}<br>${team.label}</div>`);
         ["lunch", "dinner"].forEach(meal => {
           parts.push(`<div class="cal-cell meal-label team-${team.key}">${mealLabels[meal]}</div>`);
           days.forEach(day => parts.push(renderMealCell(week, day, meal, team.key)));
@@ -3634,7 +3654,7 @@
         const week = index + 1;
         const tabTeam = teamForWeek(week);
         const teamLetter = tabTeam.key.toUpperCase();
-        return `<button type="button" class="week-tab team-${tabTeam.key} ${week === activeWeek ? "active" : ""}" data-mobile-week="${week}">${week}주차(${teamLetter})</button>`;
+        return `<button type="button" class="week-tab team-${tabTeam.key} ${week === activeWeek ? "active" : ""}" data-mobile-week="${week}">${escapeHtml(displayWeekLabel(week))}(${teamLetter})</button>`;
       }).join("");
       const cards = days.map((day, dayIndex) => {
         if (!isCalendarCellActive(activeWeek, dayIndex)) return "";
@@ -3755,7 +3775,7 @@
               <div class="field">
                 <label for="targetWeek">날짜</label>
                 <select id="targetWeek">
-                  ${Array.from({ length: currentCourse().weeks }, (_, index) => index + 1).map(week => `<option value="${week}" ${week === target.week ? "selected" : ""}>${week}주차</option>`).join("")}
+                  ${Array.from({ length: currentCourse().weeks }, (_, index) => index + 1).map(week => `<option value="${week}" ${week === target.week ? "selected" : ""}>${escapeHtml(displayWeekLabel(week))}</option>`).join("")}
                 </select>
               </div>
               <div class="field">
@@ -4099,8 +4119,9 @@
     }
     function teamForWeek(week) {
       const startsWithA = state.startTeam === "a";
-      const isStartWeek = week % 2 === 1;
-      const key = startsWithA === isStartWeek ? "a" : "b";
+      const offsetFromOfficialStart = week - officialCalendarWeek();
+      const isStartTeamWeek = Math.abs(offsetFromOfficialStart) % 2 === 0;
+      const key = startsWithA === isStartTeamWeek ? "a" : "b";
       return key === "a" ? { key: "a", label: "A팀" } : { key: "b", label: "B팀" };
     }
     function parseDate(value) {
@@ -4134,7 +4155,7 @@
       const endDate = parseDate(state.endDate);
       els.calendarHeading.innerHTML = `
         <h3>${escapeHtml(state.calendarTitle || currentCourse().label)}</h3>
-        <span>${escapeHtml(formatDate(firstDate))} - ${escapeHtml(formatDate(endDate))} · ${escapeHtml(state.language)} · ${escapeHtml(state.startTeam === "a" ? "A팀 시작" : "B팀 시작")} · ${escapeHtml(state.servingCount)}명</span>
+        <span>${escapeHtml(formatDate(firstDate))} - ${escapeHtml(formatDate(endDate))} · 정식 ${escapeHtml(formatDate(parseDate(state.officialStartDate)))} · ${escapeHtml(state.language)} · ${escapeHtml(state.startTeam === "a" ? "A팀 시작" : "B팀 시작")} · ${escapeHtml(state.servingCount)}명</span>
       `;
     }
     function renderHeaderSubtitle() {
@@ -4156,6 +4177,7 @@
         course: state.course,
         language: state.language,
         startDate: state.startDate,
+        officialStartDate: state.officialStartDate,
         endDate: state.endDate,
         startTeam: state.startTeam,
         servingCount: state.servingCount,
@@ -4619,6 +4641,7 @@
       els.calendarLanguageSelect.value = state.language;
       els.calendarTitle.value = state.calendarTitle;
       els.startDate.value = state.startDate;
+      els.officialStartDate.value = state.officialStartDate;
       els.endDate.value = state.endDate;
       els.startTeam.value = state.startTeam;
       els.servingCount.value = state.servingCount;
@@ -4678,13 +4701,18 @@
     }
     function createCalendarFromModal() {
       const nextStartDate = els.startDate.value;
+      const nextOfficialStartDate = els.officialStartDate.value;
       const nextEndDate = els.endDate.value;
-      if (!nextStartDate || !nextEndDate) {
-        window.alert("시작일과 종료일을 모두 선택해주세요.");
+      if (!nextStartDate || !nextOfficialStartDate || !nextEndDate) {
+        window.alert("식사 시작일, 정식 과정 시작일, 종료일을 모두 선택해주세요.");
         return;
       }
       if (parseDate(nextEndDate) < parseDate(nextStartDate)) {
         window.alert("종료일은 시작일보다 빠를 수 없습니다.");
+        return;
+      }
+      if (parseDate(nextOfficialStartDate) < parseDate(nextStartDate) || parseDate(nextOfficialStartDate) > parseDate(nextEndDate)) {
+        window.alert("정식 과정 시작일은 식사 시작일과 종료일 사이여야 합니다.");
         return;
       }
       if (!calendarHasWeekday(nextStartDate, nextEndDate)) {
@@ -4693,9 +4721,10 @@
       }
       state.calendarTitle = els.calendarTitle.value.trim();
       state.course = "custom";
-      state.calendarId = `range-${nextStartDate}-${nextEndDate}-${Date.now()}`;
+      state.calendarId = `range-${nextStartDate}-${nextOfficialStartDate}-${nextEndDate}-${Date.now()}`;
       state.language = els.calendarLanguageSelect.value;
       state.startDate = nextStartDate;
+      state.officialStartDate = nextOfficialStartDate;
       state.endDate = nextEndDate;
       state.startTeam = els.startTeam.value;
       state.servingCount = Math.max(1, Number(els.servingCount.value || 40));
@@ -4728,7 +4757,7 @@
             const [, , week, day, meal, slot] = key.split("|");
             const recipe = recipes.find(item => item.id === entry.recipeId);
             return {
-              week: Number(week),
+              week: displayWeekLabel(Number(week)),
               team: teamForWeek(Number(week)).label,
               day,
               meal: mealLabels[meal],
@@ -4759,7 +4788,7 @@
             if (!isCalendarCellActive(week, dayIndex)) return;
             const author = currentAuthor({ week, day, meal });
             rows.push([
-              `${week}주차`,
+              displayWeekLabel(week),
               team,
               formatDate(dateForCell(week, dayIndex)),
               day,
