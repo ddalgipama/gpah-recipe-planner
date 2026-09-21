@@ -258,6 +258,13 @@
     .meal-cell.is-empty:hover { outline: 2px dashed rgba(83,177,117,0.35); outline-offset: -2px; }
     .meal-cell.team-a { background: rgba(231,247,238,0.78); }
     .meal-cell.team-b { background: rgba(255,243,223,0.78); }
+    .meal-cell.is-outside-range {
+      align-content: center;
+      color: #a3aaa7;
+      background: #f5f6f5;
+      cursor: default;
+    }
+    .meal-cell.is-outside-range .free-entry { font-size: 0.75rem; }
     .registered { display: grid; gap: 4px; }
     .cell-date { color: var(--muted); font-size: 0.74rem; font-weight: 900; }
     .registered-line { display: grid; grid-template-columns: 46px 1fr; gap: 6px; align-items: center; min-width: 0; font-size: 0.78rem; line-height: 1.35; }
@@ -2689,14 +2696,6 @@
             <input id="calendarTitle" placeholder="예: SKE33, SCOTW35">
           </div>
           <div class="field">
-            <label for="calendarCourseSelect">주차 선택</label>
-            <select id="calendarCourseSelect">
-              <option value="4-scotw">4주</option>
-              <option value="5-scotw" selected>5주</option>
-              <option value="8-ske">8주</option>
-            </select>
-          </div>
-          <div class="field">
             <label for="calendarLanguageSelect">언어</label>
             <select id="calendarLanguageSelect">
               <option value="중국어">중국어</option>
@@ -2706,6 +2705,10 @@
           <div class="field">
             <label for="startDate">시작일</label>
             <input id="startDate" type="date">
+          </div>
+          <div class="field">
+            <label for="endDate">종료일</label>
+            <input id="endDate" type="date">
           </div>
           <div class="field">
             <label for="startTeam">시작팀</label>
@@ -2818,10 +2821,12 @@
       .filter(recipe => !starterRecipeIds.has(recipe.id))
       .filter(recipe => !deletedRecipeIds.includes(recipe.id));
     const state = {
-      course: "5-scotw",
-      language: "내밀",
+      course: savedSettings.course || "5-scotw",
+      calendarId: savedSettings.calendarId || "",
+      language: savedSettings.language || "내밀",
       calendarTitle: savedSettings.calendarTitle || "",
       startDate: savedSettings.startDate || "2026-08-31",
+      endDate: savedSettings.endDate || legacyCalendarEndDate(savedSettings.startDate || "2026-08-31", savedSettings.course || "5-scotw"),
       startTeam: savedSettings.startTeam || "a",
       servingCount: Number(savedSettings.servingCount || 40),
       menuCategory: "all",
@@ -2832,7 +2837,7 @@
       registrationAuthor: "",
       sheetsUrl: sheetsSettings.url || defaultSheetsUrl,
       purchaseStart: savedSettings.purchaseStart || savedSettings.startDate || "2026-08-31",
-      purchaseEnd: savedSettings.purchaseEnd || formatInputDate(addDays(parseDate(savedSettings.startDate || "2026-08-31"), 6)),
+      purchaseEnd: savedSettings.purchaseEnd || savedSettings.endDate || legacyCalendarEndDate(savedSettings.startDate || "2026-08-31", savedSettings.course || "5-scotw"),
       selectedId: recipes[0]?.id || null,
       editingRecipeId: null,
       activeRegistration: null,
@@ -2843,10 +2848,10 @@
       purchaseAdjustments: loadJson(purchaseAdjustmentsKey, {})
     };
     const els = {
-      calendarCourseSelect: document.querySelector("#calendarCourseSelect"),
       calendarLanguageSelect: document.querySelector("#calendarLanguageSelect"),
       calendarTitle: document.querySelector("#calendarTitle"),
       startDate: document.querySelector("#startDate"),
+      endDate: document.querySelector("#endDate"),
       startTeam: document.querySelector("#startTeam"),
       servingCount: document.querySelector("#servingCount"),
       calendarSettings: document.querySelector("#calendarSettings"),
@@ -2880,7 +2885,56 @@
     };
 
     function normalize(value) { return String(value || "").toLowerCase().replace(/\s+/g, ""); }
-    function currentCourse() { return courses[state.course]; }
+    function legacyCalendarEndDate(startDate, courseKey) {
+      const weeks = courses[courseKey]?.weeks || 5;
+      const monday = weekStartForDate(parseDate(startDate));
+      return formatInputDate(addDays(monday, ((weeks - 1) * 7) + 4));
+    }
+    function firstWeekdayOnOrAfter(value) {
+      const date = parseDate(value);
+      if (date.getDay() === 6) return addDays(date, 2);
+      if (date.getDay() === 0) return addDays(date, 1);
+      return date;
+    }
+    function lastWeekdayOnOrBefore(value) {
+      const date = parseDate(value);
+      if (date.getDay() === 6) return addDays(date, -1);
+      if (date.getDay() === 0) return addDays(date, -2);
+      return date;
+    }
+    function calendarWeekCount() {
+      const firstMonday = weekStartForDate(firstWeekdayOnOrAfter(state.startDate));
+      const lastMonday = weekStartForDate(lastWeekdayOnOrBefore(state.endDate));
+      return Math.max(1, Math.round((lastMonday - firstMonday) / 604800000) + 1);
+    }
+    function currentCourse() {
+      const legacy = courses[state.course];
+      const weeks = calendarWeekCount();
+      return {
+        label: `${weeks}주`,
+        weeks,
+        schoolPrefix: legacy?.schoolPrefix || ""
+      };
+    }
+    function isDateInCalendar(date) {
+      const value = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+      return value >= parseDate(state.startDate).getTime() && value <= parseDate(state.endDate).getTime();
+    }
+    function isCalendarCellActive(week, dayIndex) {
+      return isDateInCalendar(dateForCell(week, dayIndex));
+    }
+    function validDaysForWeek(week) {
+      return days.filter((day, dayIndex) => isCalendarCellActive(week, dayIndex));
+    }
+    function calendarHasWeekday(startValue, endValue) {
+      const cursor = parseDate(startValue);
+      const end = parseDate(endValue);
+      while (cursor <= end) {
+        if (cursor.getDay() >= 1 && cursor.getDay() <= 5) return true;
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      return false;
+    }
     function recipeLanguageTags(recipe) {
       return String(recipe?.language || "")
         .split(/[,/|·ㆍ\n]+/)
@@ -3027,6 +3081,7 @@
       return `<div class="ingredient-row"><span>${escapeHtml(parsed.name)}</span><b>${escapeHtml(formatIngredientAmount(parsed))}</b></div>`;
     }
     function recipeCalendarRegisterHtml(recipe) {
+      const initialDays = validDaysForWeek(1);
       return `
         <section class="detail-register">
           <h4>캘린더에 메뉴 등록</h4>
@@ -3037,7 +3092,7 @@
             </div>
             <div class="field">
               <label for="detailDay">요일</label>
-              <select id="detailDay">${days.map(day => `<option value="${escapeAttr(day)}">${day}</option>`).join("")}</select>
+              <select id="detailDay">${initialDays.map(day => `<option value="${escapeAttr(day)}">${day}</option>`).join("")}</select>
             </div>
             <div class="field">
               <label for="detailMeal">식사</label>
@@ -3052,6 +3107,12 @@
     function bindRecipeDetailRegistration(recipe) {
       const button = document.querySelector("#registerDetailRecipe");
       if (!button) return;
+      const weekSelect = document.querySelector("#detailWeek");
+      const daySelect = document.querySelector("#detailDay");
+      weekSelect?.addEventListener("change", () => {
+        const validDays = validDaysForWeek(Number(weekSelect.value));
+        daySelect.innerHTML = validDays.map(day => `<option value="${escapeAttr(day)}">${day}</option>`).join("");
+      });
       button.addEventListener("click", () => {
         const week = Number(document.querySelector("#detailWeek").value);
         const day = document.querySelector("#detailDay").value;
@@ -3091,14 +3152,38 @@
       return "";
     }
     function recipeThumbHtml(recipe) {
-      const url = String(recipe?.imageUrl || "").trim();
-      if (url) return `<img src="${escapeAttr(url)}" alt="" loading="lazy">`;
+      const url = normalizeImageUrl(recipe?.imageUrl);
+      if (url) return `<img src="${escapeAttr(url)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'), {textContent: '${escapeAttr(recipeEmoji(recipe))}'}))">`;
       return `<span aria-hidden="true">${escapeHtml(recipeEmoji(recipe))}</span>`;
     }
     function recipeHeroHtml(recipe) {
-      const url = String(recipe?.imageUrl || "").trim();
-      if (url) return `<img src="${escapeAttr(url)}" alt="${escapeAttr(recipe.name)} 사진" loading="lazy">`;
+      const url = normalizeImageUrl(recipe?.imageUrl);
+      if (url) return `<img src="${escapeAttr(url)}" alt="${escapeAttr(recipe.name)} 사진" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'), {textContent: '${escapeAttr(recipeEmoji(recipe))}'}))">`;
       return `<span aria-hidden="true">${escapeHtml(recipeEmoji(recipe))}</span>`;
+    }
+    function normalizeImageUrl(value) {
+      const raw = String(value || "").trim();
+      if (!raw) return "";
+      try {
+        const url = new URL(raw);
+        if (url.hostname === "github.com") {
+          const parts = url.pathname.split("/").filter(Boolean);
+          const markerIndex = parts.findIndex(part => part === "blob" || part === "raw");
+          if (parts.length >= 5 && markerIndex === 2) {
+            const [owner, repo] = parts;
+            const branch = parts[3];
+            const filePath = parts.slice(4).map(part => encodeURIComponent(decodeURIComponent(part))).join("/");
+            return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${filePath}`;
+          }
+        }
+        if (url.hostname === "raw.githubusercontent.com") {
+          url.pathname = url.pathname.split("/").map(part => encodeURIComponent(decodeURIComponent(part))).join("/");
+          return url.toString();
+        }
+        return encodeURI(raw);
+      } catch {
+        return encodeURI(raw);
+      }
     }
     function recipeEmoji(recipe) {
       const text = normalize([recipe?.name, recipe?.mainIngredients].join(" "));
@@ -3113,12 +3198,12 @@
       return "🍲";
     }
     function recipeImageHtml(recipe) {
-      const url = String(recipe?.imageUrl || "").trim();
+      const url = normalizeImageUrl(recipe?.imageUrl);
       if (!url) return "";
       return `<img class="recipe-photo" src="${escapeAttr(url)}" alt="${escapeAttr(recipe.name)} 사진" loading="lazy">`;
     }
     function recipePrintImageHtml(recipe) {
-      const url = String(recipe?.imageUrl || "").trim();
+      const url = normalizeImageUrl(recipe?.imageUrl);
       if (!url) return "";
       return `<img src="${escapeAttr(url)}" alt="${escapeAttr(recipe.name)} 사진">`;
     }
@@ -3294,11 +3379,13 @@
       const settings = calendar.settings || {};
       state.calendarTitle = settings.calendarTitle || state.calendarTitle;
       state.startDate = settings.startDate || state.startDate;
+      state.endDate = settings.endDate || (settings.course ? legacyCalendarEndDate(state.startDate, settings.course) : state.endDate);
       state.startTeam = settings.startTeam || state.startTeam;
       state.servingCount = Number(settings.servingCount || state.servingCount || 40);
       state.purchaseStart = settings.purchaseStart || state.purchaseStart;
       state.purchaseEnd = settings.purchaseEnd || state.purchaseEnd;
       if (settings.course) state.course = settings.course;
+      state.calendarId = settings.calendarId || "";
       if (settings.language) state.language = settings.language;
       if (calendar.plan && typeof calendar.plan === "object") {
         state.plan = calendar.plan;
@@ -3540,7 +3627,8 @@
       renderCalendarHeading();
     }
     function renderMobileCalendar() {
-      const activeWeek = state.mobileWeek || 1;
+      const activeWeek = Math.min(state.mobileWeek || 1, currentCourse().weeks);
+      state.mobileWeek = activeWeek;
       const team = teamForWeek(activeWeek);
       const weekTabs = Array.from({ length: currentCourse().weeks }, (_, index) => {
         const week = index + 1;
@@ -3549,6 +3637,7 @@
         return `<button type="button" class="week-tab team-${tabTeam.key} ${week === activeWeek ? "active" : ""}" data-mobile-week="${week}">${week}주차(${teamLetter})</button>`;
       }).join("");
       const cards = days.map((day, dayIndex) => {
+        if (!isCalendarCellActive(activeWeek, dayIndex)) return "";
         const date = formatDate(dateForCell(activeWeek, dayIndex));
         return `
           <section class="mobile-day-card">
@@ -3559,7 +3648,7 @@
         `;
       }).join("");
       els.mobileCalendar.innerHTML = `
-        <div class="week-tabs weeks-${currentCourse().weeks}">${weekTabs}</div>
+        <div class="week-tabs" style="grid-template-columns: repeat(${currentCourse().weeks <= 5 ? currentCourse().weeks : 4}, minmax(0, 1fr))">${weekTabs}</div>
         <div class="mobile-week-body">${cards}</div>
       `;
       els.mobileCalendar.querySelectorAll("[data-mobile-week]").forEach(button => {
@@ -3601,6 +3690,13 @@
     function renderMealCell(week, day, meal, teamKey) {
       const dayIndex = days.indexOf(day);
       const cellDate = dateForCell(week, dayIndex);
+      if (!isCalendarCellActive(week, dayIndex)) {
+        return `
+          <div class="cal-cell meal-cell is-outside-range" aria-disabled="true">
+            <div class="cell-date">${escapeHtml(formatDate(cellDate))}</div>
+            <div class="free-entry">기간 외</div>
+          </div>`;
+      }
       const selected = mealSlots[meal].map(([slot, label]) => {
         const entry = state.plan[planKey(week, day, meal, slot)];
         const recipe = recipes.find(item => item.id === entry?.recipeId);
@@ -3627,6 +3723,8 @@
         els.drawer.innerHTML = "";
         return;
       }
+      const validDays = validDaysForWeek(target.week);
+      if (!validDays.includes(target.day)) target.day = validDays[0];
       const slots = mealSlots[target.meal];
       const activeType = slotType[state.activeSlot];
       const isFreeSlot = state.activeSlot === "free";
@@ -3663,7 +3761,7 @@
               <div class="field">
                 <label for="targetDay">요일</label>
                 <select id="targetDay">
-                  ${days.map(day => `<option value="${escapeAttr(day)}" ${day === target.day ? "selected" : ""}>${day}</option>`).join("")}
+                  ${validDays.map(day => `<option value="${escapeAttr(day)}" ${day === target.day ? "selected" : ""}>${day}</option>`).join("")}
                 </select>
               </div>
               <div class="field">
@@ -4020,7 +4118,7 @@
       return addDays(date, -mondayOffset);
     }
     function dateForCell(week, dayIndex) {
-      return addDays(weekStartForDate(parseDate(state.startDate)), (week - 1) * 7 + dayIndex);
+      return addDays(weekStartForDate(firstWeekdayOnOrAfter(state.startDate)), (week - 1) * 7 + dayIndex);
     }
     function formatDate(date) {
       return `${date.getMonth() + 1}/${date.getDate()}`;
@@ -4032,8 +4130,8 @@
       return `${year}-${month}-${day}`;
     }
     function renderCalendarHeading() {
-      const firstDate = dateForCell(1, 0);
-      const endDate = dateForCell(currentCourse().weeks, days.length - 1);
+      const firstDate = parseDate(state.startDate);
+      const endDate = parseDate(state.endDate);
       els.calendarHeading.innerHTML = `
         <h3>${escapeHtml(state.calendarTitle || currentCourse().label)}</h3>
         <span>${escapeHtml(formatDate(firstDate))} - ${escapeHtml(formatDate(endDate))} · ${escapeHtml(state.language)} · ${escapeHtml(state.startTeam === "a" ? "A팀 시작" : "B팀 시작")} · ${escapeHtml(state.servingCount)}명</span>
@@ -4054,16 +4152,19 @@
     function calendarShareSettings() {
       return {
         calendarTitle: state.calendarTitle,
+        calendarId: state.calendarId,
         course: state.course,
         language: state.language,
         startDate: state.startDate,
+        endDate: state.endDate,
         startTeam: state.startTeam,
         servingCount: state.servingCount,
         purchaseStart: state.purchaseStart,
         purchaseEnd: state.purchaseEnd
       };
     }
-    function planKey(week, day, meal, slot) { return `${state.course}|${state.language}|${week}|${day}|${meal}|${slot}`; }
+    function planScope() { return state.calendarId || state.course; }
+    function planKey(week, day, meal, slot) { return `${planScope()}|${state.language}|${week}|${day}|${meal}|${slot}`; }
     function confirmRecipeReplacement(key, nextRecipeId) {
       const current = state.plan[key];
       if (!current?.recipeId || current.recipeId === nextRecipeId) return true;
@@ -4515,10 +4616,10 @@
       return text;
     }
     function syncSelectors() {
-      els.calendarCourseSelect.value = state.course;
       els.calendarLanguageSelect.value = state.language;
       els.calendarTitle.value = state.calendarTitle;
       els.startDate.value = state.startDate;
+      els.endDate.value = state.endDate;
       els.startTeam.value = state.startTeam;
       els.servingCount.value = state.servingCount;
       els.purchaseStart.value = state.purchaseStart;
@@ -4576,14 +4677,30 @@
       els.calendarCreateModal.classList.remove("open");
     }
     function createCalendarFromModal() {
+      const nextStartDate = els.startDate.value;
+      const nextEndDate = els.endDate.value;
+      if (!nextStartDate || !nextEndDate) {
+        window.alert("시작일과 종료일을 모두 선택해주세요.");
+        return;
+      }
+      if (parseDate(nextEndDate) < parseDate(nextStartDate)) {
+        window.alert("종료일은 시작일보다 빠를 수 없습니다.");
+        return;
+      }
+      if (!calendarHasWeekday(nextStartDate, nextEndDate)) {
+        window.alert("선택한 기간에 평일이 없습니다. 평일이 포함되도록 날짜를 선택해주세요.");
+        return;
+      }
       state.calendarTitle = els.calendarTitle.value.trim();
-      state.course = els.calendarCourseSelect.value;
+      state.course = "custom";
+      state.calendarId = `range-${nextStartDate}-${nextEndDate}-${Date.now()}`;
       state.language = els.calendarLanguageSelect.value;
-      state.startDate = els.startDate.value || state.startDate;
+      state.startDate = nextStartDate;
+      state.endDate = nextEndDate;
       state.startTeam = els.startTeam.value;
       state.servingCount = Math.max(1, Number(els.servingCount.value || 40));
       state.purchaseStart = state.startDate;
-      state.purchaseEnd = formatInputDate(addDays(parseDate(state.startDate), 6));
+      state.purchaseEnd = state.endDate;
       state.activeRegistration = null;
       state.mobileWeek = 1;
       syncSelectors();
@@ -4606,7 +4723,7 @@
         course: currentCourse().label,
         language: state.language,
         plan: Object.entries(state.plan)
-          .filter(([key]) => key.startsWith(`${state.course}|${state.language}|`))
+          .filter(([key]) => key.startsWith(`${planScope()}|${state.language}|`))
           .map(([key, entry]) => {
             const [, , week, day, meal, slot] = key.split("|");
             const recipe = recipes.find(item => item.id === entry.recipeId);
@@ -4627,7 +4744,7 @@
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `gpah-${state.course}-${state.language}-plan.json`;
+      link.download = `gpah-${sanitizeFilename(state.calendarTitle || planScope())}-${state.language}-plan.json`;
       link.click();
       URL.revokeObjectURL(url);
     }
@@ -4639,6 +4756,7 @@
         const team = teamForWeek(week).label;
         ["lunch", "dinner"].forEach(meal => {
           days.forEach((day, dayIndex) => {
+            if (!isCalendarCellActive(week, dayIndex)) return;
             const author = currentAuthor({ week, day, meal });
             rows.push([
               `${week}주차`,
@@ -4730,14 +4848,15 @@
     });
     document.querySelector("#purchaseThisWeek").addEventListener("click", () => {
       state.purchaseStart = state.startDate;
-      state.purchaseEnd = formatInputDate(addDays(parseDate(state.startDate), 6));
+      const weekEnd = addDays(parseDate(state.startDate), 6);
+      state.purchaseEnd = formatInputDate(weekEnd > parseDate(state.endDate) ? parseDate(state.endDate) : weekEnd);
       syncSelectors();
       saveSharedCalendarSettings();
       renderPurchase();
     });
     document.querySelector("#purchaseFullCourse").addEventListener("click", () => {
       state.purchaseStart = state.startDate;
-      state.purchaseEnd = formatInputDate(dateForCell(currentCourse().weeks, days.length - 1));
+      state.purchaseEnd = state.endDate;
       syncSelectors();
       saveSharedCalendarSettings();
       renderPurchase();
