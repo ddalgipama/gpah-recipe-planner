@@ -2741,8 +2741,8 @@
           <div class="field"><label for="newType">분류</label><select id="newType"><option>메인</option><option>사이드</option><option>샐러드</option></select></div>
         </div>
         <div class="field"><label for="newTime">소요시간</label><input id="newTime" placeholder="예: 70~85분"></div>
-        <div class="field"><label for="newIngredients">주재료</label><textarea id="newIngredients" placeholder="재료명과 수량을 줄바꿈으로 입력"></textarea></div>
-        <div class="field"><label for="newSauce">소스재료</label><textarea id="newSauce" placeholder="소스재료를 줄바꿈으로 입력"></textarea></div>
+        <div class="field"><label for="newIngredients">주재료</label><textarea id="newIngredients" placeholder="예: 양파 2kg (약 10개)&#10;재료별로 줄바꿈하여 입력"></textarea></div>
+        <div class="field"><label for="newSauce">소스재료</label><textarea id="newSauce" placeholder="예: 마늘 500g (약 25알)&#10;재료별로 줄바꿈하여 입력"></textarea></div>
         <div class="field"><label for="newRecipeText">레시피</label><textarea id="newRecipeText"></textarea></div>
         <div class="field"><label for="newNotes">주의사항</label><textarea id="newNotes"></textarea></div>
         <div class="top-actions">
@@ -2808,6 +2808,46 @@
       lunch: [["main", "메인"], ["side", "사이드"], ["salad", "샐러드"], ["rice", "밥"], ["free", "그외메뉴"]],
       dinner: [["main", "메인"], ["side", "사이드"], ["rice", "밥"], ["free", "그외메뉴"]]
     };
+    const builtInIngredientConversions = [
+      { aliases: ["방울토마토", "대추방울토마토"], grams: 15, unit: "개" },
+      { aliases: ["완숙토마토", "토마토"], grams: 200, unit: "개" },
+      { aliases: ["적양파", "깐양파", "양파"], grams: 200, unit: "개" },
+      { aliases: ["감자"], grams: 150, unit: "개" },
+      { aliases: ["고구마"], grams: 200, unit: "개" },
+      { aliases: ["당근"], grams: 150, unit: "개" },
+      { aliases: ["파프리카"], grams: 180, unit: "개" },
+      { aliases: ["피망"], grams: 100, unit: "개" },
+      { aliases: ["애호박"], grams: 300, unit: "개" },
+      { aliases: ["주키니", "쥬키니"], grams: 250, unit: "개" },
+      { aliases: ["가지"], grams: 200, unit: "개" },
+      { aliases: ["오이"], grams: 200, unit: "개" },
+      { aliases: ["양배추"], grams: 1500, unit: "통" },
+      { aliases: ["배추"], grams: 2500, unit: "포기" },
+      { aliases: ["무"], grams: 1000, unit: "개" },
+      { aliases: ["대파"], grams: 500, unit: "단" },
+      { aliases: ["쪽파"], grams: 500, unit: "단" },
+      { aliases: ["마늘"], grams: 5, unit: "알" },
+      { aliases: ["청양고추", "홍고추", "풋고추"], grams: 10, unit: "개" },
+      { aliases: ["레몬"], grams: 120, unit: "개" },
+      { aliases: ["라임"], grams: 80, unit: "개" },
+      { aliases: ["사과"], grams: 250, unit: "개" },
+      { aliases: ["배"], grams: 500, unit: "개" },
+      { aliases: ["바나나"], grams: 120, unit: "개" },
+      { aliases: ["오렌지"], grams: 200, unit: "개" },
+      { aliases: ["키위"], grams: 100, unit: "개" },
+      { aliases: ["망고"], grams: 350, unit: "개" },
+      { aliases: ["복숭아"], grams: 250, unit: "개" },
+      { aliases: ["아보카도"], grams: 200, unit: "개" },
+      { aliases: ["파인애플"], grams: 1000, unit: "통" },
+      { aliases: ["단호박"], grams: 1000, unit: "통" },
+      { aliases: ["옥수수"], grams: 250, unit: "개" },
+      { aliases: ["브로콜리"], grams: 300, unit: "송이" },
+      { aliases: ["콜리플라워"], grams: 600, unit: "송이" },
+      { aliases: ["새송이버섯", "새송이"], grams: 80, unit: "개" },
+      { aliases: ["표고버섯", "표고"], grams: 20, unit: "개" },
+      { aliases: ["두부"], grams: 300, unit: "모" },
+      { aliases: ["계란", "달걀"], grams: 60, unit: "개" }
+    ];
     const slotType = { main: "메인", side: "사이드", salad: "샐러드", rice: "밥", free: "그외메뉴" };
     const recipeStoreKey = "gpah-recipes-v2";
     const deletedRecipeStoreKey = "gpah-deleted-recipes-v1";
@@ -4397,14 +4437,35 @@
       return Math.max(1, Number(state.servingCount || 40)) / 40;
     }
     function scaleParsedIngredient(parsed, scale) {
-      return { ...parsed, min: parsed.min * scale, max: parsed.max * scale };
+      return {
+        ...parsed,
+        min: parsed.min * scale,
+        max: parsed.max * scale,
+        secondary: parsed.secondary ? {
+          ...parsed.secondary,
+          min: parsed.secondary.min * scale,
+          max: parsed.secondary.max * scale
+        } : null
+      };
     }
     function addParsedIngredient(totals, parsed, sourceName) {
       const key = `${normalize(parsed.name)}|${parsed.unit}`;
-      const current = totals.get(key) || { name: parsed.name, unit: parsed.unit, min: 0, max: 0, ranged: false, sources: new Set() };
+      const current = totals.get(key) || { name: parsed.name, unit: parsed.unit, min: 0, max: 0, ranged: false, approximate: false, secondary: null, sources: new Set() };
       current.min += parsed.min;
       current.max += parsed.max;
       current.ranged = current.ranged || parsed.ranged;
+      current.approximate = current.approximate || parsed.approximate;
+      if (parsed.secondary) {
+        if (!current.secondary) {
+          current.secondary = { ...parsed.secondary, min: 0, max: 0 };
+        }
+        if (current.secondary.unit === parsed.secondary.unit) {
+          current.secondary.min += parsed.secondary.min;
+          current.secondary.max += parsed.secondary.max;
+          current.secondary.ranged = current.secondary.ranged || parsed.secondary.ranged;
+          current.secondary.approximate = current.secondary.approximate || parsed.secondary.approximate;
+        }
+      }
       current.sources.add(sourceName);
       totals.set(key, current);
     }
@@ -4439,7 +4500,7 @@
     }
     function scaleIngredientLineInline(line) {
       const scale = servingScale();
-      return String(line || "").replace(/((?:\d+(?:\.\d+)?|\d+\/\d+)(?:\s*(?:~|-|–|—)\s*(?:\d+(?:\.\d+)?|\d+\/\d+))?)\s*(kg|g|ml|l|L|개|단|봉|팩|캔|병|통|큰술|작은술|T|t|컵|줄|장|알|마리|송이)(?![가-힣a-z])/gi, (match, amountText, unit) => {
+      return String(line || "").replace(/((?:\d+(?:\.\d+)?|\d+\/\d+)(?:\s*(?:~|-|–|—)\s*(?:\d+(?:\.\d+)?|\d+\/\d+))?)\s*(kg|g|ml|l|L|개|단|봉|팩|캔|병|통|큰술|작은술|T|t|컵|줄|장|알|마리|송이|모|포기)(?![가-힣a-z])/gi, (match, amountText, unit) => {
         const unitInfo = normalizePurchaseUnit(unit);
         const range = String(amountText).split(/\s*(?:~|-|–|—)\s*/).map(parseIngredientNumber);
         if (range.some(value => Number.isNaN(value))) return match;
@@ -4463,16 +4524,87 @@
       totals.set(key, current);
     }
     function parseIngredientLine(line) {
+      const standardized = String(line || "")
+        .replace(/㎏/g, "kg")
+        .replace(/㎖/g, "ml")
+        .replace(/ℓ/g, "L")
+        .replace(/^[\s\-*•·\d.)]+/, "")
+        .replace(/(\d),(\d)/g, "$1$2")
+        .replace(/\s+/g, " ")
+        .trim();
+      const amountPattern = "(?:\\d+(?:\\.\\d+)?|\\d+\\/\\d+)(?:\\s*(?:~|-|–|—)\\s*(?:\\d+(?:\\.\\d+)?|\\d+\\/\\d+))?";
+      const unitPattern = "kg|g|ml|l|L|개|단|봉|팩|캔|병|통|큰술|작은술|T|t|컵|줄|장|알|마리|송이|모|포기";
+      const dualPattern = new RegExp(`^(.+?)\\s*(${amountPattern})\\s*(${unitPattern})\\s*(?:\\(|/|·)\\s*(약\\s*)?(${amountPattern})\\s*(${unitPattern})\\s*\\)?$`, "i");
+      const dualMatch = standardized.match(dualPattern);
+      if (dualMatch) {
+        const primary = ingredientAmountValues(dualMatch[2], dualMatch[3]);
+        const secondary = ingredientAmountValues(dualMatch[5], dualMatch[6]);
+        const name = dualMatch[1].trim();
+        if (!name || !primary || !secondary) return null;
+        return applyBuiltInIngredientConversion({
+          name,
+          ...primary,
+          secondary: { ...secondary, approximate: Boolean(dualMatch[4]) }
+        });
+      }
       const cleaned = cleanIngredientInput(line);
-      const match = cleaned.match(/^(.+?)\s*((?:\d+(?:\.\d+)?|\d+\/\d+)(?:\s*(?:~|-|–|—)\s*(?:\d+(?:\.\d+)?|\d+\/\d+))?)\s*(kg|g|ml|l|L|개|단|봉|팩|캔|병|통|큰술|작은술|T|t|컵|줄|장|알|마리|송이)$/i);
+      const match = cleaned.match(/^(.+?)\s*((?:\d+(?:\.\d+)?|\d+\/\d+)(?:\s*(?:~|-|–|—)\s*(?:\d+(?:\.\d+)?|\d+\/\d+))?)\s*(kg|g|ml|l|L|개|단|봉|팩|캔|병|통|큰술|작은술|T|t|컵|줄|장|알|마리|송이|모|포기)$/i);
       if (!match) return null;
       const name = match[1].trim();
-      const range = match[2].split(/\s*(?:~|-|–|—)\s*/).map(parseIngredientNumber);
-      const unitInfo = normalizePurchaseUnit(match[3]);
-      if (!name || range.some(value => Number.isNaN(value))) return null;
-      const min = range[0] * unitInfo.factor;
-      const max = (range[1] ?? range[0]) * unitInfo.factor;
-      return { name, unit: unitInfo.unit, min, max, ranged: range.length > 1 };
+      const amount = ingredientAmountValues(match[2], match[3]);
+      if (!name || !amount) return null;
+      return applyBuiltInIngredientConversion({ name, ...amount, secondary: null });
+    }
+    function ingredientAmountValues(amountText, unit) {
+      const range = String(amountText).split(/\s*(?:~|-|–|—)\s*/).map(parseIngredientNumber);
+      const unitInfo = normalizePurchaseUnit(unit);
+      if (range.some(value => Number.isNaN(value))) return null;
+      return {
+        unit: unitInfo.unit,
+        min: range[0] * unitInfo.factor,
+        max: (range[1] ?? range[0]) * unitInfo.factor,
+        ranged: range.length > 1
+      };
+    }
+    function builtInConversionFor(name) {
+      const normalizedName = normalize(name);
+      return builtInIngredientConversions.find(conversion =>
+        conversion.aliases.some(alias => normalizedName === normalize(alias) || normalizedName.endsWith(normalize(alias)))
+      ) || null;
+    }
+    function applyBuiltInIngredientConversion(parsed) {
+      if (!parsed || parsed.secondary) return parsed;
+      const conversion = builtInConversionFor(parsed.name);
+      if (!conversion) return parsed;
+      if (parsed.unit === "g") {
+        return {
+          ...parsed,
+          secondary: {
+            unit: conversion.unit,
+            min: parsed.min / conversion.grams,
+            max: parsed.max / conversion.grams,
+            ranged: parsed.ranged,
+            approximate: true
+          }
+        };
+      }
+      if (parsed.unit === conversion.unit) {
+        return {
+          ...parsed,
+          unit: "g",
+          min: parsed.min * conversion.grams,
+          max: parsed.max * conversion.grams,
+          approximate: true,
+          secondary: {
+            unit: conversion.unit,
+            min: parsed.min,
+            max: parsed.max,
+            ranged: parsed.ranged,
+            approximate: false
+          }
+        };
+      }
+      return parsed;
     }
     function cleanIngredientInput(line) {
       return String(line || "")
@@ -4505,10 +4637,11 @@
     function withPriceInfo(items) {
       return items.map(originalItem => {
         const item = adjustedPurchaseItem(originalItem);
-        const price = findPriceForItem(item);
-        if (!price) return { ...item, price: null, minCost: null, maxCost: null };
-        const minAmount = amountForPriceUnit(item.min, item.unit, price.unit);
-        const maxAmount = amountForPriceUnit(item.max, item.unit, price.unit);
+        const priceMatch = findPriceForItem(item);
+        if (!priceMatch) return { ...item, price: null, minCost: null, maxCost: null };
+        const { price, basis } = priceMatch;
+        const minAmount = amountForPriceUnit(basis.min, basis.unit, price.unit);
+        const maxAmount = amountForPriceUnit(basis.max, basis.unit, price.unit);
         if (minAmount === null || maxAmount === null || !price.baseAmount) {
           return { ...item, price, minCost: null, maxCost: null };
         }
@@ -4528,7 +4661,12 @@
       const delta = Number(state.purchaseAdjustments[key] || 0);
       const min = Math.max(0, item.min + delta);
       const max = Math.max(0, item.max + delta);
-      return { ...item, key, min, max };
+      const secondary = item.secondary ? {
+        ...item.secondary,
+        min: item.min > 0 ? item.secondary.min * (min / item.min) : item.secondary.min,
+        max: item.max > 0 ? item.secondary.max * (max / item.max) : item.secondary.max
+      } : null;
+      return { ...item, key, min, max, secondary };
     }
     function purchaseStepFor(item) {
       if (item.unit === "g" || item.unit === "ml") return item.max >= 1000 ? 1000 : 100;
@@ -4536,12 +4674,22 @@
     }
     function findPriceForItem(item) {
       const itemName = normalize(item.name);
-      const exact = state.prices.find(price => normalize(price.name) === itemName && compatibleUnits(item.unit, price.unit));
-      if (exact) return exact;
-      return state.prices.find(price => {
-        const priceName = normalize(price.name);
-        return compatibleUnits(item.unit, price.unit) && (itemName.includes(priceName) || priceName.includes(itemName));
-      }) || null;
+      const bases = [
+        { unit: item.unit, min: item.min, max: item.max },
+        item.secondary ? { unit: item.secondary.unit, min: item.secondary.min, max: item.secondary.max } : null
+      ].filter(Boolean);
+      for (const basis of bases) {
+        const exact = state.prices.find(price => normalize(price.name) === itemName && compatibleUnits(basis.unit, price.unit));
+        if (exact) return { price: exact, basis };
+      }
+      for (const basis of bases) {
+        const fuzzy = state.prices.find(price => {
+          const priceName = normalize(price.name);
+          return compatibleUnits(basis.unit, price.unit) && (itemName.includes(priceName) || priceName.includes(itemName));
+        });
+        if (fuzzy) return { price: fuzzy, basis };
+      }
+      return null;
     }
     function compatibleUnits(itemUnit, priceUnit) {
       if (itemUnit === priceUnit) return true;
@@ -4601,7 +4749,18 @@
       const displayUnit = displayPurchaseUnit(item.unit, item.max);
       const min = formatDisplayQuantity(item.min, item.unit, displayUnit);
       const max = formatDisplayQuantity(item.max, item.unit, displayUnit);
-      return item.ranged && min !== max ? `${min}~${max}${displayUnit}` : `${min}${displayUnit}`;
+      const primaryAmount = item.ranged && min !== max ? `${min}~${max}${displayUnit}` : `${min}${displayUnit}`;
+      const primary = `${item.approximate ? "약 " : ""}${primaryAmount}`;
+      if (!item.secondary) return primary;
+      return `${primary} · ${formatSecondaryIngredientAmount(item.secondary)}`;
+    }
+    function formatSecondaryIngredientAmount(secondary) {
+      const discreteUnits = new Set(["개", "단", "봉", "팩", "캔", "병", "통", "줄", "장", "알", "마리", "송이"]);
+      const formatValue = value => discreteUnits.has(secondary.unit) ? String(Math.ceil(value)) : formatQuantity(value);
+      const min = formatValue(secondary.min);
+      const max = formatValue(secondary.max);
+      const amount = secondary.ranged && min !== max ? `${min}~${max}${secondary.unit}` : `${max}${secondary.unit}`;
+      return `${secondary.approximate ? "약 " : ""}${amount}`;
     }
     function formatQuantity(value) {
       return Number.isInteger(value) ? String(value) : String(Math.round(value * 100) / 100);
