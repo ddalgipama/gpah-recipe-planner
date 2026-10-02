@@ -1300,6 +1300,32 @@
       border-radius: 18px;
       font-size: 1rem;
     }
+    .recipe-image-editor {
+      display: grid;
+      grid-template-columns: 96px minmax(0, 1fr);
+      gap: 14px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fff;
+    }
+    .recipe-image-preview {
+      width: 96px;
+      height: 82px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border-radius: 12px;
+      color: var(--muted);
+      background: var(--fill);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .recipe-image-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .recipe-image-editor > div:last-child { min-width: 0; }
+    .recipe-image-editor input[type="file"] { width: 100%; max-width: 100%; }
+    .recipe-save-status { min-height: 20px; color: var(--muted); font-size: 12px; font-weight: 800; }
     .recipe-photo {
       border-radius: 18px;
       max-height: 260px;
@@ -2486,7 +2512,8 @@
         min-width: 76px !important;
         max-width: 76px !important;
       }
-      #closeRecipeDetail {
+      #closeRecipeDetail,
+      #editRecipeDetail {
         width: 58px !important;
         min-width: 58px !important;
         max-width: 58px !important;
@@ -2745,9 +2772,20 @@
         <div class="field"><label for="newSauce">소스재료</label><textarea id="newSauce" placeholder="예: 마늘 500g (약 25알)&#10;재료별로 줄바꿈하여 입력"></textarea></div>
         <div class="field"><label for="newRecipeText">레시피</label><textarea id="newRecipeText"></textarea></div>
         <div class="field"><label for="newNotes">주의사항</label><textarea id="newNotes"></textarea></div>
+        <div class="field">
+          <label for="newImage">음식 사진</label>
+          <div class="recipe-image-editor">
+            <div class="recipe-image-preview" id="newImagePreview">사진 없음</div>
+            <div>
+              <input id="newImage" type="file" accept="image/jpeg,image/png,image/webp">
+              <div class="free-entry">사진은 업로드 전에 자동으로 용량을 줄여 저장합니다.</div>
+            </div>
+          </div>
+        </div>
+        <div class="recipe-save-status" id="recipeSaveStatus" role="status" aria-live="polite"></div>
         <div class="top-actions">
           <button type="button" class="btn" id="cancelNewRecipe">닫기</button>
-          <button type="submit" class="btn primary">등록</button>
+          <button type="submit" class="btn primary" id="saveRecipeButton">등록</button>
         </div>
       </form>
     </div>
@@ -2788,7 +2826,10 @@
     <div class="modal">
       <div class="panel-header between">
         <h2 class="panel-title" id="recipeDetailTitle">레시피 상세</h2>
-        <button type="button" class="btn small" id="closeRecipeDetail">닫기</button>
+        <div class="modal-action-row">
+          <button type="button" class="btn small" id="editRecipeDetail">수정</button>
+          <button type="button" class="btn small" id="closeRecipeDetail">닫기</button>
+        </div>
       </div>
       <div class="modal-body detail" id="recipeDetailModalBody"></div>
     </div>
@@ -3287,6 +3328,7 @@
       state.editingRecipeId = recipeId;
       const recipe = recipes.find(item => item.id === recipeId);
       document.querySelector("#newRecipeTitle").textContent = recipe ? "메뉴수정" : "신규메뉴등록";
+      document.querySelector("#saveRecipeButton").textContent = recipe ? "수정 저장" : "등록";
       document.querySelector("#newName").value = recipe?.name || "";
       document.querySelector("#newType").value = recipe?.type || "메인";
       document.querySelector("#newTime").value = recipe?.time || "";
@@ -3294,12 +3336,64 @@
       document.querySelector("#newSauce").value = recipe?.sauceIngredients || "";
       document.querySelector("#newRecipeText").value = recipe?.recipe || "";
       document.querySelector("#newNotes").value = recipe?.notes || "";
+      document.querySelector("#newImage").value = "";
+      document.querySelector("#recipeSaveStatus").textContent = "";
+      renderRecipeImagePreview(recipe?.imageUrl || "");
       els.modal.classList.add("open");
+    }
+    function renderRecipeImagePreview(imageUrl) {
+      const preview = document.querySelector("#newImagePreview");
+      const url = normalizeImageUrl(imageUrl);
+      preview.innerHTML = url ? `<img src="${escapeAttr(url)}" alt="현재 음식 사진">` : "사진 없음";
+    }
+    function readFileAsDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(new Error("사진을 읽지 못했습니다."));
+        reader.readAsDataURL(file);
+      });
+    }
+    function loadImageFromUrl(url) {
+      return new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error("사진을 처리하지 못했습니다."));
+        image.src = url;
+      });
+    }
+    function canvasToBlob(canvas, quality) {
+      return new Promise((resolve, reject) => {
+        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("사진을 압축하지 못했습니다.")), "image/jpeg", quality);
+      });
+    }
+    async function prepareRecipeImage(file, recipeId) {
+      const sourceUrl = await readFileAsDataUrl(file);
+      const image = await loadImageFromUrl(sourceUrl);
+      const maxSide = 1600;
+      const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const context = canvas.getContext("2d");
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      let blob = await canvasToBlob(canvas, 0.82);
+      if (blob.size > 950000) blob = await canvasToBlob(canvas, 0.66);
+      if (blob.size > 1200000) blob = await canvasToBlob(canvas, 0.52);
+      const dataUrl = await readFileAsDataUrl(blob);
+      return {
+        data: dataUrl.split(",")[1] || "",
+        mimeType: "image/jpeg",
+        fileName: `${String(recipeId || "recipe").replace(/[^a-z0-9_-]/gi, "-")}-${Date.now()}.jpg`
+      };
     }
     function closeRecipeModal() {
       state.editingRecipeId = null;
       document.querySelector("#newRecipeForm").reset();
       document.querySelector("#newRecipeTitle").textContent = "신규메뉴등록";
+      document.querySelector("#saveRecipeButton").textContent = "등록";
       els.modal.classList.remove("open");
     }
     function deleteRecipe(recipeId) {
@@ -3385,21 +3479,12 @@
       if (raw === "t") return { unit: "작은술", factor: 1 };
       return { unit: raw, factor: 1 };
     }
-    function upsertLocalRecipes(incoming) {
-      incoming.forEach(recipe => {
-        const recipeIndex = recipes.findIndex(item => item.id === recipe.id || recipeFingerprint(item) === recipeFingerprint(recipe));
-        if (recipeIndex >= 0) recipes[recipeIndex] = recipe;
-        else recipes.push(recipe);
-        const savedIndex = savedRecipes.findIndex(item => item.id === recipe.id || recipeFingerprint(item) === recipeFingerprint(recipe));
-        if (savedIndex >= 0) savedRecipes[savedIndex] = recipe;
-        else savedRecipes.push(recipe);
-      });
+    function replaceLocalRecipes(incoming) {
+      recipes.splice(0, recipes.length, ...incoming);
+      savedRecipes.splice(0, savedRecipes.length, ...incoming);
       saveJson(recipeStoreKey, savedRecipes);
       if (!recipes.some(recipe => recipe.id === state.selectedId)) state.selectedId = recipes[0]?.id || null;
       renderAll();
-    }
-    function recipeFingerprint(recipe) {
-      return normalize([recipe?.name, recipe?.type, recipe?.school].join("|"));
     }
     function openSheetsModal() {
       els.sheetsUrl.value = state.sheetsUrl;
@@ -3422,11 +3507,7 @@
         const rows = Array.isArray(data) ? data : data.recipes || data.rows || [];
         if (data.prices) state.prices = data.prices.map(normalizePriceRecord).filter(Boolean);
         const imported = rows.map((row, index) => normalizeRecipeRecord(row, index)).filter(Boolean);
-        if (!imported.length) {
-          els.sheetsStatus.textContent = "불러올 메뉴를 찾지 못했습니다. 시트 헤더를 확인해주세요.";
-          return;
-        }
-        upsertLocalRecipes(imported);
+        replaceLocalRecipes(imported);
         if (data.calendar) applyCalendarFromSheets(data.calendar);
         els.sheetsStatus.textContent = `${imported.length}개 메뉴, 공유 캘린더, 가격표를 Google Sheets에서 불러왔습니다.`;
       } catch (error) {
@@ -3498,6 +3579,7 @@
       if (!state.sheetsUrl) return;
       const form = new FormData();
       form.append("action", "upsert");
+      form.append("adminPassword", calendarAdminPassword);
       form.append("data", JSON.stringify(recipe));
       try {
         await fetch(state.sheetsUrl, { method: "POST", mode: "no-cors", body: form });
@@ -3511,7 +3593,7 @@
         formEl.action = state.sheetsUrl;
         formEl.target = frameName;
         formEl.hidden = true;
-        [["action", "upsert"], ["data", JSON.stringify(recipe)]].forEach(([name, value]) => {
+        [["action", "upsert"], ["adminPassword", calendarAdminPassword], ["data", JSON.stringify(recipe)]].forEach(([name, value]) => {
           const input = document.createElement("input");
           input.name = name;
           input.value = value;
@@ -5056,6 +5138,11 @@
     document.querySelector("#editMealDetail").addEventListener("click", editActiveMealDetail);
     document.querySelector("#printMealDetail").addEventListener("click", downloadMealDetail);
     document.querySelector("#closeRecipeDetail").addEventListener("click", closeRecipeDetailModal);
+    document.querySelector("#editRecipeDetail").addEventListener("click", () => {
+      if (!state.selectedId || !requestAdminAccess("메뉴를 수정하려면 관리자 비밀번호를 입력해주세요.")) return;
+      closeRecipeDetailModal();
+      openRecipeModal(state.selectedId);
+    });
     document.querySelector("#openNewRecipe").addEventListener("click", () => openRecipeModal());
     document.querySelector("#cancelNewRecipe").addEventListener("click", closeRecipeModal);
     document.querySelector("#openSheetsSettings").addEventListener("click", openSheetsModal);
@@ -5070,9 +5157,26 @@
     els.sheetsModal.addEventListener("click", event => { if (event.target === els.sheetsModal) closeSheetsModal(); });
     els.mealDetailModal.addEventListener("click", event => { if (event.target === els.mealDetailModal) els.mealDetailModal.classList.remove("open"); });
     els.recipeDetailModal.addEventListener("click", event => { if (event.target === els.recipeDetailModal) closeRecipeDetailModal(); });
+    document.querySelector("#newImage").addEventListener("change", async event => {
+      const file = event.target.files?.[0];
+      if (!file) {
+        const currentRecipe = recipes.find(recipe => recipe.id === state.editingRecipeId);
+        renderRecipeImagePreview(currentRecipe?.imageUrl || "");
+        return;
+      }
+      if (!file.type.startsWith("image/")) {
+        window.alert("이미지 파일을 선택해주세요.");
+        event.target.value = "";
+        return;
+      }
+      renderRecipeImagePreview(await readFileAsDataUrl(file));
+    });
     document.querySelector("#newRecipeForm").addEventListener("submit", async event => {
       event.preventDefault();
       const editingRecipe = recipes.find(recipe => recipe.id === state.editingRecipeId);
+      const saveButton = document.querySelector("#saveRecipeButton");
+      const saveStatus = document.querySelector("#recipeSaveStatus");
+      const imageFile = document.querySelector("#newImage").files?.[0];
       const recipe = {
         id: editingRecipe?.id || `custom-${Date.now()}`,
         language: editingRecipe?.language || state.language,
@@ -5084,8 +5188,22 @@
         mainIngredients: document.querySelector("#newIngredients").value.trim(),
         sauceIngredients: document.querySelector("#newSauce").value.trim(),
         recipe: document.querySelector("#newRecipeText").value.trim(),
-        notes: document.querySelector("#newNotes").value.trim()
+        notes: document.querySelector("#newNotes").value.trim(),
+        imageUrl: editingRecipe?.imageUrl || ""
       };
+      saveButton.disabled = true;
+      saveStatus.textContent = imageFile ? "사진을 압축하고 저장하는 중입니다..." : "메뉴를 저장하는 중입니다...";
+      let sheetRecipe = recipe;
+      try {
+        if (imageFile) {
+          const imageUpload = await prepareRecipeImage(imageFile, recipe.id);
+          sheetRecipe = { ...recipe, imageUpload };
+        }
+      } catch (error) {
+        saveButton.disabled = false;
+        saveStatus.textContent = error.message || "사진을 처리하지 못했습니다.";
+        return;
+      }
       if (editingRecipe) {
         Object.assign(editingRecipe, recipe);
         const savedIndex = savedRecipes.findIndex(item => item.id === recipe.id);
@@ -5097,9 +5215,16 @@
       }
       saveJson(recipeStoreKey, savedRecipes);
       state.selectedId = recipe.id;
-      closeRecipeModal();
       renderAll();
-      await postRecipeToSheets(recipe);
+      await postRecipeToSheets(sheetRecipe);
+      if (imageFile) {
+        saveStatus.textContent = "사진을 불러오는 중입니다...";
+        await new Promise(resolve => setTimeout(resolve, 900));
+        await syncRecipesFromSheets({ saveUrl: false });
+      }
+      saveButton.disabled = false;
+      closeRecipeModal();
+      window.alert(editingRecipe ? "메뉴가 수정되었습니다." : "신규 메뉴가 등록되었습니다.");
     });
     syncSelectors();
     if (sessionStorage.getItem("gpah-admin") === "ok") showAdminSettings();
