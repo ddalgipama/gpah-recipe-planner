@@ -3214,6 +3214,7 @@
         daySelect.innerHTML = validDays.map(day => `<option value="${escapeAttr(day)}">${day}</option>`).join("");
       });
       button.addEventListener("click", () => {
+        if (!requestAdminAccess("캘린더에 메뉴를 등록하려면 관리자 비밀번호를 입력해주세요.")) return;
         const week = Number(document.querySelector("#detailWeek").value);
         const day = document.querySelector("#detailDay").value;
         const meal = document.querySelector("#detailMeal").value;
@@ -3668,6 +3669,7 @@
       els.mealDetailModal.classList.add("open");
     }
     function openRegistrationDrawer(week, day, meal, slot = "") {
+      if (!requestAdminAccess("메뉴를 등록하거나 수정하려면 관리자 비밀번호를 입력해주세요.")) return;
       state.activeMealDetail = null;
       els.mealDetailModal.classList.remove("open");
       state.activeRegistration = { week, day, meal };
