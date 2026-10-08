@@ -2933,6 +2933,8 @@
       plan: loadJson(planStoreKey, {}),
       purchaseAdjustments: loadJson(purchaseAdjustmentsKey, {})
     };
+    let lastSyncedPlan = JSON.parse(JSON.stringify(state.plan));
+    let calendarSaveQueue = Promise.resolve();
     const els = {
       calendarLanguageSelect: document.querySelector("#calendarLanguageSelect"),
       calendarTitle: document.querySelector("#calendarTitle"),
@@ -3531,6 +3533,7 @@
       if (settings.language) state.language = settings.language;
       if (calendar.plan && typeof calendar.plan === "object") {
         state.plan = calendar.plan;
+        lastSyncedPlan = JSON.parse(JSON.stringify(calendar.plan));
         saveJson(planStoreKey, state.plan);
       }
       saveSettings();
@@ -3555,7 +3558,7 @@
           delete window[callbackName];
           script.remove();
           reject(new Error("Apps Script 응답 시간이 초과되었습니다."));
-        }, 12000);
+        }, 30000);
         window[callbackName] = data => {
           clearTimeout(timer);
           delete window[callbackName];
@@ -3605,14 +3608,28 @@
         setTimeout(() => { frame.remove(); formEl.remove(); }, 4000);
       }
     }
-    async function postCalendarToSheets() {
+    function postCalendarToSheets() {
       if (!state.sheetsUrl) return;
+      const currentPlan = JSON.parse(JSON.stringify(state.plan));
+      const updates = {};
+      Object.keys(currentPlan).forEach(key => {
+        if (JSON.stringify(currentPlan[key]) !== JSON.stringify(lastSyncedPlan[key])) updates[key] = currentPlan[key];
+      });
+      const deletedKeys = Object.keys(lastSyncedPlan).filter(key => !(key in currentPlan));
       const payload = {
         settings: calendarShareSettings(),
-        plan: state.plan
+        updates,
+        deletedKeys
       };
+      lastSyncedPlan = currentPlan;
+      calendarSaveQueue = calendarSaveQueue
+        .catch(() => {})
+        .then(() => sendCalendarPatch(payload));
+      return calendarSaveQueue;
+    }
+    async function sendCalendarPatch(payload) {
       const form = new FormData();
-      form.append("action", "saveCalendar");
+      form.append("action", "patchCalendar");
       form.append("data", JSON.stringify(payload));
       try {
         await fetch(state.sheetsUrl, { method: "POST", mode: "no-cors", body: form });
@@ -3626,7 +3643,7 @@
         formEl.action = state.sheetsUrl;
         formEl.target = frameName;
         formEl.hidden = true;
-        [["action", "saveCalendar"], ["data", JSON.stringify(payload)]].forEach(([name, value]) => {
+        [["action", "patchCalendar"], ["data", JSON.stringify(payload)]].forEach(([name, value]) => {
           const input = document.createElement("input");
           input.name = name;
           input.value = value;
